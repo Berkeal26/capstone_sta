@@ -87,6 +87,23 @@ npm start
 Open http://localhost:3000 → Home → Start Planning → send a message.
 You should receive a GPT-3.5-Turbo reply via the backend.
 
+---
+
+## Render deployment
+
+- Build command:
+  - `pip install -r requirements.txt`
+- Start command:
+  - `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- Environment variables:
+  - `OPENAI_API_KEY` (required)
+
+Notes:
+- Free tier instances may spin down; first request after idle can be slow.
+- Ensure CORS allows `https://smart-travel-assistant-946f9.web.app` and `https://*.onrender.com`.
+- Frontend production environment file (untracked) should set:
+  - `.env.production` → `REACT_APP_API_BASE=https://RENDER_SERVICE_NAME.onrender.com`
+
 ✅ Dynamic conversation flow  
 ✅ Structured response cards for travel info  
 ✅ Basic analytics and trip summaries  

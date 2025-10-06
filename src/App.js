@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import './App.css';
 import './styles/globals.css';
+import './styles/site.css';
 import Home from './pages/Home';
 import Chat from './pages/Chat';
 

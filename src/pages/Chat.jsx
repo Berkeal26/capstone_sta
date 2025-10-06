@@ -3,7 +3,7 @@ import MessageBubble from '../components/MessageBubble';
 import ChatInput from '../components/ChatInput';
 
 async function sendToApi(messages) {
-  const base = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
+  const base = process.env.REACT_APP_API_BASE ?? '';
   const res = await fetch(`${base}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
