@@ -37,7 +37,3 @@ This MVP integrates **React**, **Firebase**, and **OpenAI GPT** to simulate real
 ✅ Dynamic conversation flow  
 ✅ Structured response cards for travel info  
 ✅ Basic analytics and trip summaries  
-
----
-
-## 🧩 Architecture
