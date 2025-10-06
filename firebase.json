@@ -1,4 +1,5 @@
 {
+  "_comment": "JSONC-style note: After deploying FastAPI to Cloud Run, add a rewrite to proxy /api/** to the Cloud Run URL.",
   "hosting": {
     "public": "build",
     "ignore": [
