@@ -1,0 +1,7 @@
+# Ignore env files (keep example)
+.env
+.env.*
+*.env
+**/.env
+**/.env.*
+!.env.example
