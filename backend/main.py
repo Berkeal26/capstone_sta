@@ -15,6 +15,7 @@ api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     raise RuntimeError("OPENAI_API_KEY missing in backend/.env")
 
+print(f"OpenAI API key loaded: {api_key[:10]}..." if api_key else "No API key found")
 client = OpenAI(api_key=api_key)
 
 app = FastAPI()
@@ -45,15 +46,34 @@ def health():
 @app.post("/api/chat")
 def chat(req: ChatRequest):
     try:
+        # Validate that we have messages
+        if not req.messages or len(req.messages) == 0:
+            raise HTTPException(status_code=400, detail="No messages provided")
+        
+        # Make sure the last message is from the user
+        if req.messages[-1]["role"] != "user":
+            raise HTTPException(status_code=400, detail="Last message must be from user")
+        
         resp = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=req.messages,
             temperature=0.7,
+            max_tokens=1000
         )
+        
+        if not resp.choices or len(resp.choices) == 0:
+            raise HTTPException(status_code=500, detail="No response from OpenAI")
+            
         reply = resp.choices[0].message.content
+        if not reply:
+            raise HTTPException(status_code=500, detail="Empty response from OpenAI")
+            
         return {"reply": reply}
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error in chat endpoint: {str(e)}")  # Log the error for debugging
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 # Platforms like Render provide PORT; documented here for reference.
 PORT = int(os.getenv("PORT", "8000"))
