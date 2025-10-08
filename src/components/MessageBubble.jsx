@@ -7,9 +7,11 @@ export default function MessageBubble({ role, content, timestamp }) {
     <div className={`message-row ${isUser ? 'message-row-user' : ''}`}>
       {!isUser && (
         <div className="avatar avatar-assistant">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <circle cx="8" cy="8" r="8" fill="#00ADEF"/>
-          </svg>
+          <img 
+            src={process.env.PUBLIC_URL + '/Miles_logo.png'} 
+            alt="Miles" 
+            style={{ width: '32px', height: '32px' }}
+          />
         </div>
       )}
       <div className={`bubble ${isUser ? 'bubble-user' : 'bubble-assistant'}`}>

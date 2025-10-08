@@ -15,7 +15,7 @@ async function sendToApi(messages) {
 
 export default function Chat() {
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: "Hi! I'm your AI travel assistant. I'm here to help you plan the perfect trip. Where would you like to go?", timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) }
+    { role: 'assistant', content: "Hi! I'm Miles, your AI travel assistant. I'm here to help you plan the perfect trip. Where would you like to go?", timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) }
   ]);
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState(null);
@@ -63,12 +63,15 @@ export default function Chat() {
               Back to Home
             </button>
             <div className="chat-header-info">
-              <div className="chat-header-icon">
-                <img src={process.env.PUBLIC_URL + '/sta_tpt_logo.png'} alt="logo" width={48} height={48} />
+              <div className="chat-header-icon" style={{ width: '48px', height: '48px', padding: '6px', background: '#E6F7FF', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img src={process.env.PUBLIC_URL + '/Miles_logo.png'} alt="Miles" style={{ width: '36px', height: '36px' }} />
               </div>
               <div>
-                <h1 className="chat-title">Smart Travel Assistant</h1>
-                <p className="chat-status">Online • Ready to help plan your trip</p>
+                <h1 className="chat-title">Miles</h1>
+                <p className="chat-status" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#00ff00', display: 'inline-block' }}></span>
+                  Online • Ready to help plan your trip
+                </p>
               </div>
             </div>
           </div>

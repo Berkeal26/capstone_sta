@@ -11,7 +11,10 @@ export default function Home() {
         <div className="container">
           <div className="nav-left">
             <img src={process.env.PUBLIC_URL + '/sta_tpt_logo.png'} alt="logo" width={48} height={48} />
-            <span className="brand-name">Smart Travel Assistant</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <span className="brand-name">Wayfinder</span>
+              <span style={{ fontSize: '12px', color: 'var(--muted-foreground)', fontWeight: 400 }}>Plan Smarter. Travel Freer.</span>
+            </div>
           </div>
           <div className="nav-right">
             <a className="nav-link" href="#features">Features</a>
@@ -112,9 +115,12 @@ export default function Home() {
           <div>
             <div className="nav-left" style={{ paddingBottom: 8 }}>
               <img src={process.env.PUBLIC_URL + '/sta_tpt_logo.png'} alt="logo" width={32} height={32} />
-              <span className="brand-name">Smart Travel Assistant</span>
-            </div>
-            <div className="muted">AI-powered travel planning made simple</div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <span className="brand-name">Wayfinder</span>
+                <span style={{ fontSize: '12px', color: 'var(--muted-foreground)', fontWeight: 400 }}>Plan Smarter. Travel Freer.</span>
+              </div>
+              </div>
+              <div className="muted">AI-powered travel planning made simple</div>
           </div>
           <div>
             <h5>Product</h5>
@@ -136,7 +142,7 @@ export default function Home() {
           </div>
         </div>
         <div className="container" style={{ paddingTop: 24 }}>
-          <div className="muted">© 2025 Smart Travel Assistant. All rights reserved.</div>
+          <div className="muted">© 2025 Wayfinder. All rights reserved.</div>
         </div>
       </footer>
     </div>

@@ -34,6 +34,8 @@ export default function ChatInput({ onSend, disabled }) {
             padding: 10,
             background: 'var(--input-background)',
             borderRadius: 8,
+            fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
+            fontSize: 'var(--text-base)',
           }}
           disabled={disabled}
         />
