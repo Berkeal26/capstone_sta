@@ -86,7 +86,7 @@ function renderTable(rows) {
   if (rows.length === 0) return null;
   
   return (
-    <div key={`table-${Date.now()}`} style={{ margin: '8px 0', overflowX: 'auto' }}>
+    <div key={`table-${rows.length}-${rows[0]?.length || 0}`} style={{ margin: '8px 0', overflowX: 'auto' }}>
       <table style={{ 
         width: '100%', 
         borderCollapse: 'collapse', 
