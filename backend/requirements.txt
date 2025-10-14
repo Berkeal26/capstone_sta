@@ -3,5 +3,6 @@ uvicorn[standard]
 python-dotenv
 openai==1.*
 pydantic
+pytz
 
 
