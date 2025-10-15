@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional
 from dotenv import load_dotenv
 import os
 from openai import OpenAI
@@ -68,11 +69,11 @@ app.add_middleware(
 
 
 class UserLocation(BaseModel):
-    city: str = None
-    region: str = None
-    country: str = None
-    lat: float = None
-    lon: float = None
+    city: Optional[str] = None
+    region: Optional[str] = None
+    country: Optional[str] = None
+    lat: Optional[float] = None
+    lon: Optional[float] = None
 
 class Context(BaseModel):
     now_iso: str
