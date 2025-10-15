@@ -75,7 +75,10 @@ async function getLocationContext() {
 }
 
 async function sendToApi(messages, context, sessionId) {
-  const base = process.env.REACT_APP_API_BASE ?? 'https://capstone-oj8xlxyhj-berkes-projects-f48a9605.vercel.app';
+  const base = process.env.REACT_APP_API_BASE;
+  if (!base) {
+    throw new Error('Missing REACT_APP_API_BASE. Please set it in .env and rebuild.');
+  }
   console.log('API Base URL:', base);
   console.log('Making request to:', `${base}/api/chat`);
   

@@ -258,7 +258,7 @@ Return only the JSON object, no other text."""
                 next_month = today.replace(month=today.month + 1)
             return next_month.strftime("%Y-%m-%d")
         
-        # Handle month names
+        # Handle month names, optionally with explicit year like "December 2025"
         month_mapping = {
             "january": "01", "february": "02", "march": "03", "april": "04",
             "may": "05", "june": "06", "july": "07", "august": "08",
@@ -267,10 +267,15 @@ Return only the JSON object, no other text."""
         
         for month_name, month_num in month_mapping.items():
             if month_name in date_str_lower:
-                # Default to current year, or next year if month has passed
-                year = today.year
-                if int(month_num) < today.month:
-                    year = today.year + 1
+                # Try to capture explicit year if present (e.g., "December 2025")
+                year_match = re.search(r"(19|20)\d{2}", date_str_lower)
+                if year_match:
+                    year = int(year_match.group(0))
+                else:
+                    # Default to current year, or next year if month has passed
+                    year = today.year
+                    if int(month_num) < today.month:
+                        year = today.year + 1
                 return f"{year}-{month_num}-01"
         
         # Handle "this month" - return a date in the current month

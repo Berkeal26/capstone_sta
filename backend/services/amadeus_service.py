@@ -78,7 +78,8 @@ class AmadeusService:
                 # Token might be expired, try to refresh
                 self._access_token = None
                 return await self._make_request(endpoint, params)
-            raise Exception(f"Amadeus API error: {e.response.status_code}")
+            # include body to help diagnose
+            raise Exception(f"Amadeus API error: {e.response.status_code} - {e.response.text}")
         except Exception as e:
             logger.error(f"Amadeus API request failed: {e}")
             raise Exception(f"Amadeus API request failed: {e}")

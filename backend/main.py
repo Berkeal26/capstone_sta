@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional
 from dotenv import load_dotenv
 import os
 from openai import OpenAI
@@ -68,17 +69,17 @@ app.add_middleware(
 
 
 class UserLocation(BaseModel):
-    city: str = None
-    region: str = None
-    country: str = None
-    lat: float = None
-    lon: float = None
+    city: Optional[str] = None
+    region: Optional[str] = None
+    country: Optional[str] = None
+    lat: Optional[float] = None
+    lon: Optional[float] = None
 
 class Context(BaseModel):
-    now_iso: str
-    user_tz: str
-    user_locale: str
-    user_location: UserLocation
+    now_iso: Optional[str] = None
+    user_tz: Optional[str] = None
+    user_locale: Optional[str] = None
+    user_location: Optional[UserLocation] = None
 
 class ChatRequest(BaseModel):
     messages: list  # list of {role, content}
@@ -105,6 +106,72 @@ def health():
 @app.get("/api/test")
 def test():
     return {"message": "Backend is working", "timestamp": datetime.now().isoformat()}
+
+# Diagnostics for Amadeus integration
+@app.get("/api/diag/amadeus/location")
+async def diag_amadeus_location(keyword: str = "Paris"):
+    try:
+        logger.info(f"[DIAG] Testing Amadeus location search with keyword='{keyword}'")
+        result = await amadeus_service.get_airport_city_search(keyword=keyword)
+        count = (result or {}).get("count", 0)
+        sample = None
+        if result and result.get("locations"):
+            sample = result["locations"][0]
+        return {"ok": True, "count": count, "sample": sample, "raw": result}
+    except Exception as e:
+        logger.error(f"[DIAG] Amadeus location search failed: {e}")
+        return {"ok": False, "error": str(e)}
+
+@app.get("/api/diag/amadeus/flight")
+async def diag_amadeus_flight(origin: str = "PAR", destination: str = "TYO", date: str = "2025-12-01"):
+    try:
+        logger.info(f"[DIAG] Testing Amadeus flight search {origin}->{destination} on {date}")
+        result = await amadeus_service.search_flights(origin=origin, destination=destination, departure_date=date)
+        count = (result or {}).get("count", 0)
+        sample = None
+        if result and result.get("flights"):
+            sample = result["flights"][0]
+        return {"ok": True, "count": count, "sample": sample, "raw": result}
+    except Exception as e:
+        logger.error(f"[DIAG] Amadeus flight search failed: {e}")
+        return {"ok": False, "error": str(e)}
+
+@app.get("/api/diag/amadeus/flight-dates")
+async def diag_amadeus_flight_dates(origin: str = "PAR", destination: str = "TYO",
+                                    start: str = "2025-12-01", end: str = "2026-01-01"):
+    try:
+        date_range = f"{start},{end}"
+        logger.info(f"[DIAG] Testing Amadeus flight-dates {origin}->{destination} range {date_range}")
+        result = await amadeus_service.get_cheapest_dates(
+            origin=origin,
+            destination=destination,
+            departure_date_range=date_range
+        )
+        return {
+            "ok": True,
+            "count": (result or {}).get("count", 0),
+            "dates": (result or {}).get("dates", [])[:10],
+            "raw": result
+        }
+    except Exception as e:
+        logger.error(f"[DIAG] Amadeus flight-dates failed: {e}")
+        return {"ok": False, "error": str(e)}
+
+@app.get("/api/diag/amadeus/token")
+async def diag_amadeus_token():
+    try:
+        token = await amadeus_service._get_access_token()
+        return {"ok": True, "token_present": bool(token), "token_prefix": token[:12] if token else None}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+@app.get("/api/diag/amadeus/inspiration")
+async def diag_amadeus_inspiration(origin: str = "PAR", maxPrice: int = 200):
+    try:
+        result = await amadeus_service.get_flight_inspiration(origin=origin, max_price=maxPrice)
+        return {"ok": True, "count": (result or {}).get("count", 0), "sample": (result or {}).get("destinations", [])[:3], "raw": result}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 @app.post("/api/test-context")
 async def test_context(ctx: Context):
@@ -140,6 +207,8 @@ async def test_context(ctx: Context):
 def format_local_time(now_iso, user_tz):
     """Format the current time in the user's timezone with UTC offset"""
     try:
+        if not now_iso or not user_tz:
+            return now_iso or ""
         dt = datetime.fromisoformat(now_iso.replace('Z', '+00:00'))
         user_tz_obj = pytz.timezone(user_tz)
         local_dt = dt.astimezone(user_tz_obj)
@@ -160,24 +229,30 @@ def format_local_time(now_iso, user_tz):
 
 def get_location_string(user_location):
     """Get a readable location string from user_location"""
+    if not user_location:
+        return "Unknown location"
     parts = []
-    if user_location.city:
+    if getattr(user_location, 'city', None):
         parts.append(user_location.city)
-    if user_location.country:
+    if getattr(user_location, 'country', None):
         parts.append(user_location.country)
     return ", ".join(parts) if parts else "Unknown location"
 
 def create_system_prompt(context, amadeus_data=None):
     """Create the Miles travel assistant system prompt with context and real-time data"""
-    local_time = format_local_time(context.now_iso, context.user_tz)
-    location = get_location_string(context.user_location)
+    if not context:
+        local_time = ""
+        location = "Unknown location"
+    else:
+        local_time = format_local_time(context.now_iso, context.user_tz)
+        location = get_location_string(context.user_location)
     
     # Log sanitized context for debugging
     logger.info(
         "Creating system prompt - sanitized context: time=%s tz=%s city=%s country=%s lat=%s lon=%s",
-        context.now_iso, context.user_tz,
-        context.user_location.city, context.user_location.country,
-        context.user_location.lat, context.user_location.lon,
+        getattr(context, 'now_iso', None), getattr(context, 'user_tz', None),
+        getattr(getattr(context, 'user_location', None), 'city', None), getattr(getattr(context, 'user_location', None), 'country', None),
+        getattr(getattr(context, 'user_location', None), 'lat', None), getattr(getattr(context, 'user_location', None), 'lon', None),
     )
     
     system_prompt = f"""You are "Miles," a travel-planning assistant embedded in a web app. You must produce clean, skimmable answers and use the runtime context the app sends.
@@ -368,25 +443,26 @@ async def chat(req: ChatRequest):
                 try:
                     # Call appropriate Amadeus API based on intent
                     if intent["type"] == "flight_search":
+                        logger.info(f"Calling flight search with params: {intent['params']}")
                         # If origin/destination are not IATA codes, try to get them via location search
                         origin = intent["params"]["origin"]
                         destination = intent["params"]["destination"]
                         
                         # Check if we need to convert city names to IATA codes
-                        if not self._is_iata_code(origin):
+                        if not _is_iata_code(origin):
                             logger.info(f"Converting origin '{origin}' to IATA code")
-                            location_result = await amadeus_service.get_airport_city_search(origin)
-                            if location_result and not location_result.get('error'):
-                                # Use the first result's IATA code
-                                origin = location_result[0].get('iataCode', origin)
+                            location_result = await amadeus_service.get_airport_city_search(keyword=origin)
+                            if location_result and not location_result.get('error') and location_result.get('locations'):
+                                # Use the first result's IATA code from normalized schema
+                                origin = location_result['locations'][0].get('code', origin)
                                 logger.info(f"Converted origin to IATA code: {origin}")
                         
-                        if not self._is_iata_code(destination):
+                        if not _is_iata_code(destination):
                             logger.info(f"Converting destination '{destination}' to IATA code")
-                            location_result = await amadeus_service.get_airport_city_search(destination)
-                            if location_result and not location_result.get('error'):
-                                # Use the first result's IATA code
-                                destination = location_result[0].get('iataCode', destination)
+                            location_result = await amadeus_service.get_airport_city_search(keyword=destination)
+                            if location_result and not location_result.get('error') and location_result.get('locations'):
+                                # Use the first result's IATA code from normalized schema
+                                destination = location_result['locations'][0].get('code', destination)
                                 logger.info(f"Converted destination to IATA code: {destination}")
                         
                         amadeus_data = await amadeus_service.search_flights(
@@ -397,7 +473,9 @@ async def chat(req: ChatRequest):
                             adults=intent["params"].get("adults", 1),
                             max_price=intent["params"].get("max_price")
                         )
+                        logger.info(f"Amadeus flight search returned count={(amadeus_data or {}).get('count')} for {origin}->{destination}")
                     elif intent["type"] == "hotel_search":
+                        logger.info(f"Calling hotel search with params: {intent['params']}")
                         amadeus_data = await amadeus_service.search_hotels(
                             city_code=intent["params"]["destination"],
                             check_in=intent["params"]["check_in"],
@@ -406,7 +484,9 @@ async def chat(req: ChatRequest):
                             radius=intent["params"].get("radius", 50),
                             price_range=intent["params"].get("price_range")
                         )
+                        logger.info(f"Amadeus hotel search returned count={(amadeus_data or {}).get('count')}")
                     elif intent["type"] == "activity_search":
+                        logger.info(f"Calling activity search with params: {intent['params']}")
                         if "latitude" in intent["params"] and "longitude" in intent["params"]:
                             amadeus_data = await amadeus_service.search_activities(
                                 latitude=float(intent["params"]["latitude"]),
@@ -418,15 +498,19 @@ async def chat(req: ChatRequest):
                             logger.warning("Activity search requires coordinates")
                             amadeus_data = {"error": "Activity search requires location coordinates"}
                     elif intent["type"] == "flight_inspiration":
+                        logger.info(f"Calling flight inspiration with params: {intent['params']}")
                         amadeus_data = await amadeus_service.get_flight_inspiration(
                             origin=intent["params"]["origin"],
                             max_price=intent["params"].get("max_price"),
                             departure_date=intent["params"].get("departure_date")
                         )
+                        logger.info(f"Amadeus flight inspiration returned count={(amadeus_data or {}).get('count')}")
                     elif intent["type"] == "location_search":
+                        logger.info(f"Calling location search with params: {intent['params']}")
                         amadeus_data = await amadeus_service.get_airport_city_search(
                             keyword=intent["params"]["keyword"]
                         )
+                        logger.info(f"Amadeus location search returned count={(amadeus_data or {}).get('count')}")
                     
                     # Cache the response
                     if amadeus_data and not amadeus_data.get('error'):
