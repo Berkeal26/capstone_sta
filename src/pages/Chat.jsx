@@ -74,12 +74,15 @@ async function getLocationContext() {
   };
 }
 
-async function sendToApi(messages, context) {
-  const base = process.env.REACT_APP_API_BASE ?? '';
+async function sendToApi(messages, context, sessionId) {
+  const base = process.env.REACT_APP_API_BASE ?? 'https://capstone-oj8xlxyhj-berkes-projects-f48a9605.vercel.app';
+  console.log('API Base URL:', base);
+  console.log('Making request to:', `${base}/api/chat`);
+  
   const res = await fetch(`${base}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, context }),
+    body: JSON.stringify({ messages, context, session_id: sessionId }),
   });
   if (!res.ok) throw new Error('API error');
   return res.json();
@@ -90,7 +93,8 @@ export default function Chat() {
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState(null);
   const [context, setContext] = useState(null);
-  const [isLoadingContext, setIsLoadingContext] = useState(true);
+  const [, setIsLoadingContext] = useState(true);
+  const [sessionId, setSessionId] = useState(null);
   const scrollRef = useRef(null);
 
   const quickReplies = ['Plan a trip to Paris', 'Budget accommodations', 'Check weather'];
@@ -101,6 +105,10 @@ export default function Chat() {
       try {
         const locationContext = await getLocationContext();
         setContext(locationContext);
+        
+        // Generate session ID for cache continuity
+        const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        setSessionId(newSessionId);
         
         // Create welcome message with location context
         let welcomeMessage = "Hi! I'm Miles, your AI travel assistant. I'm here to help you plan the perfect trip.";
@@ -144,17 +152,20 @@ export default function Chat() {
     setMessages((prev) => [...prev, userMsg]);
     setError(null);
     setIsTyping(true);
-    try {
-      const payload = [...messages, userMsg];
-      const data = await sendToApi(payload, context);
-      const reply = data.reply || '';
-      setMessages((prev) => [...prev, { role: 'assistant', content: reply, timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) }]);
-    } catch (e) {
-      setError('Something went wrong. Please try again.');
-      setMessages((prev) => [...prev, { role: 'assistant', content: 'Sorry, there was an error reaching the server.', timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) }]);
-    } finally {
-      setIsTyping(false);
-    }
+        try {
+          const payload = [...messages, userMsg];
+          console.log('Sending to API:', { payload, context, sessionId });
+          const data = await sendToApi(payload, context, sessionId);
+          console.log('API Response:', data);
+          const reply = data.reply || '';
+          setMessages((prev) => [...prev, { role: 'assistant', content: reply, timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) }]);
+        } catch (e) {
+          console.error('API Error:', e);
+          setError('Something went wrong. Please try again.');
+          setMessages((prev) => [...prev, { role: 'assistant', content: 'Sorry, there was an error reaching the server.', timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) }]);
+        } finally {
+          setIsTyping(false);
+        }
   };
 
   const rendered = useMemo(() => messages.map((m, idx) => (

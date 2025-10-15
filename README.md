@@ -26,8 +26,9 @@ This MVP integrates **React**, **Firebase**, and **OpenAI GPT** to simulate real
 | **Hosting** | Firebase Hosting |
 | **Backend API** | FastAPI (Python) |
 | **AI Engine** | OpenAI GPT-3.5 Turbo (via backend) |
+| **Travel APIs** | Amadeus (Flights, Hotels, Activities) |
 | **Design Workflow** | Figma → Locofy AI → React |
-| **APIs** | Mock APIs (Flights, Hotels, Weather) |
+| **Caching** | In-memory session cache |
 
 ---
 
@@ -35,6 +36,10 @@ This MVP integrates **React**, **Firebase**, and **OpenAI GPT** to simulate real
 
 ✅ Professional chat UI  
 ✅ OpenAI GPT-powered assistant (server-side)  
+✅ Real-time Amadeus API integration (flights, hotels, activities)  
+✅ Intelligent intent detection  
+✅ Session-based caching  
+✅ Multi-turn conversation with context  
 ---
 
 ## 🔧 Local Development
@@ -50,6 +55,8 @@ Backend (FastAPI):
 
 1. Ensure `backend/.env` exists with:
    - `OPENAI_API_KEY=sk-...`
+   - `AMADEUS_API_KEY=vQCIIzbiTzIv7NtAStYuOGWCR6rbg3kx`
+   - `AMADEUS_API_SECRET=your_amadeus_secret_here`
 2. Install deps:
    - `cd backend && pip install -r requirements.txt`
 3. Run API: `uvicorn main:app --reload --port 8000`
@@ -107,3 +114,35 @@ Notes:
 ✅ Dynamic conversation flow  
 ✅ Structured response cards for travel info  
 ✅ Basic analytics and trip summaries  
+
+## 🚀 Amadeus API Integration
+
+The chatbot now integrates with Amadeus travel APIs to provide real-time data:
+
+### Features
+- **Flight Search**: Find flights with real-time pricing and availability
+- **Hotel Search**: Discover accommodations with current rates
+- **Activity Search**: Get recommendations for things to do
+- **Flight Inspiration**: Discover destinations within budget
+- **Location Search**: Find airport and city codes
+
+### Setup
+1. Get Amadeus API credentials from [developers.amadeus.com](https://developers.amadeus.com)
+2. Add credentials to `backend/.env`:
+   ```
+   AMADEUS_API_KEY=your_api_key
+   AMADEUS_API_SECRET=your_api_secret
+   ```
+3. Test connection: `python test_amadeus_api.py`
+4. Run full integration test: `python backend/test_amadeus_integration.py`
+
+### API Quotas (Free Tier)
+- Flight Offers: 2,000/month
+- Flight Inspiration: 3,000/month  
+- Hotel Search: 2,400/month
+- Activities: 400/month
+- Location Search: 7,000/month
+
+**Total**: ~15,000 requests/month
+
+For detailed integration documentation, see [backend/AMADEUS_INTEGRATION.md](backend/AMADEUS_INTEGRATION.md)  
