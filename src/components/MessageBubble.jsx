@@ -1,7 +1,7 @@
 import React from 'react';
 
 // Visual components for enhanced itinerary display
-function ItineraryCard({ day, activities, weather, time }) {
+function ItineraryCard({ day, activities, weather, time, photos }) {
   // Helper function to create Google Maps link
   const createMapLink = (location) => {
     const encodedLocation = encodeURIComponent(location);
@@ -30,96 +30,210 @@ function ItineraryCard({ day, activities, weather, time }) {
   };
 
   return (
-    <div style={{
-      border: '1px solid #e2e8f0',
-      borderRadius: '12px',
-      padding: '16px',
-      margin: '12px 0',
-      backgroundColor: '#f8fafc',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-        <div style={{
-          width: '40px',
-          height: '40px',
-          borderRadius: '50%',
-          backgroundColor: '#004C8C',
-          color: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontWeight: 'bold',
-          marginRight: '12px'
-        }}>
-          {day}
+    <div>
+      <div style={{
+        border: '1px solid #e2e8f0',
+        borderRadius: '12px',
+        padding: '16px',
+        margin: '12px 0',
+        backgroundColor: '#f8fafc',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            backgroundColor: '#004C8C',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 'bold',
+            marginRight: '12px'
+          }}>
+            {day}
+          </div>
+          <div>
+            <h4 style={{ margin: '0', color: '#004C8C', fontSize: '16px' }}>Day {day}</h4>
+            {time && <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>⏰ {time}</p>}
+            {weather && <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>🌤️ {weather}</p>}
+          </div>
         </div>
         <div>
-          <h4 style={{ margin: '0', color: '#004C8C', fontSize: '16px' }}>Day {day}</h4>
-          {time && <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>⏰ {time}</p>}
-          {weather && <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>🌤️ {weather}</p>}
-        </div>
-      </div>
-      <div>
-        {activities.map((activity, index) => {
-          const location = extractLocation(activity.title);
-          const mapLink = location ? createMapLink(location) : null;
-          
-          return (
-            <div key={index} style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              marginBottom: '8px',
-              padding: '8px',
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              border: '1px solid #e2e8f0'
-            }}>
-              <div style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: '#004C8C',
-                marginRight: '12px',
-                marginTop: '6px',
-                flexShrink: 0
-              }}></div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: '500', marginBottom: '2px' }}>
-                  {mapLink ? (
-                    <a 
-                      href={mapLink} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      style={{ 
-                        color: '#004C8C',
-                        textDecoration: 'underline',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      {activity.title}
-                    </a>
-                  ) : (
-                    activity.title
+          {activities.map((activity, index) => {
+            const location = extractLocation(activity.title);
+            const mapLink = location ? createMapLink(location) : null;
+            
+            return (
+              <div key={index} style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                marginBottom: '8px',
+                padding: '8px',
+                backgroundColor: 'white',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <div style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: '#004C8C',
+                  marginRight: '12px',
+                  marginTop: '6px',
+                  flexShrink: 0
+                }}></div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: '500', marginBottom: '2px' }}>
+                    {mapLink ? (
+                      <a 
+                        href={mapLink} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        style={{ 
+                          color: '#004C8C',
+                          textDecoration: 'underline',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        {activity.title}
+                      </a>
+                    ) : (
+                      activity.title
+                    )}
+                  </div>
+                  {activity.description && (
+                    <div style={{ fontSize: '14px', color: '#64748b' }}>{activity.description}</div>
+                  )}
+                  {activity.duration && (
+                    <div style={{ fontSize: '12px', color: '#004C8C', marginTop: '4px' }}>
+                      ⏱️ {activity.duration}
+                    </div>
                   )}
                 </div>
-                {activity.description && (
-                  <div style={{ fontSize: '14px', color: '#64748b' }}>{activity.description}</div>
-                )}
-                {activity.duration && (
-                  <div style={{ fontSize: '12px', color: '#004C8C', marginTop: '4px' }}>
-                    ⏱️ {activity.duration}
-                  </div>
-                )}
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
+      
+      {/* Photo Gallery for the day */}
+      {photos && photos.length > 0 && (
+        <PhotoGallery images={photos} title={`Day ${day} Highlights`} location={time} />
+      )}
     </div>
   );
 }
 
-function LocationCard({ name, description, image, rating, price }) {
+// Photo Gallery Component
+function PhotoGallery({ images, title, location }) {
+  const [currentImage, setCurrentImage] = React.useState(0);
+  
+  if (!images || images.length === 0) return null;
+  
+  return (
+    <div style={{
+      margin: '16px 0',
+      border: '1px solid #e2e8f0',
+      borderRadius: '12px',
+      overflow: 'hidden',
+      backgroundColor: 'white',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    }}>
+      <div style={{ padding: '16px', borderBottom: '1px solid #e2e8f0' }}>
+        <h4 style={{ margin: '0 0 8px 0', color: '#004C8C', fontSize: '16px' }}>{title}</h4>
+        {location && <p style={{ margin: '0', fontSize: '12px', color: '#64748b' }}>📍 {location}</p>}
+      </div>
+      
+      <div style={{ position: 'relative' }}>
+        <div style={{
+          width: '100%',
+          height: '200px',
+          backgroundImage: `url(${images[currentImage]})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          fontSize: '14px',
+          textShadow: '0 1px 3px rgba(0,0,0,0.5)'
+        }}>
+          {images[currentImage].includes('placeholder') ? '📸 Photo Gallery' : ''}
+        </div>
+        
+        {images.length > 1 && (
+          <>
+            <button 
+              onClick={() => setCurrentImage((prev) => prev > 0 ? prev - 1 : images.length - 1)}
+              style={{
+                position: 'absolute',
+                left: '8px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'rgba(0,0,0,0.7)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ‹
+            </button>
+            <button 
+              onClick={() => setCurrentImage((prev) => prev < images.length - 1 ? prev + 1 : 0)}
+              style={{
+                position: 'absolute',
+                right: '8px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'rgba(0,0,0,0.7)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ›
+            </button>
+          </>
+        )}
+      </div>
+      
+      {images.length > 1 && (
+        <div style={{ padding: '12px', display: 'flex', gap: '8px', justifyContent: 'center' }}>
+          {images.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentImage(index)}
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                border: 'none',
+                backgroundColor: index === currentImage ? '#004C8C' : '#e2e8f0',
+                cursor: 'pointer'
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LocationCard({ name, description, image, rating, price, photos }) {
   // Helper function to create Google Maps link
   const createMapLink = (location) => {
     const encodedLocation = encodeURIComponent(location);
@@ -129,55 +243,62 @@ function LocationCard({ name, description, image, rating, price }) {
   const mapLink = createMapLink(name);
 
   return (
-    <div style={{
-      border: '1px solid #e2e8f0',
-      borderRadius: '12px',
-      padding: '16px',
-      margin: '8px 0',
-      backgroundColor: 'white',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-        {image && (
-          <div style={{
-            width: '80px',
-            height: '80px',
-            borderRadius: '8px',
-            backgroundColor: '#f1f5f9',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#64748b',
-            fontSize: '12px',
-            flexShrink: 0
-          }}>
-            📍
-          </div>
-        )}
-        <div style={{ flex: 1 }}>
-          <div style={{ marginBottom: '4px' }}>
-            <h4 style={{ margin: '0', color: '#004C8C', fontSize: '16px' }}>
-              <a 
-                href={mapLink} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                style={{ 
-                  color: '#004C8C',
-                  textDecoration: 'underline',
-                  fontWeight: 'bold'
-                }}
-              >
-                {name}
-              </a>
-            </h4>
-          </div>
-          <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#64748b' }}>{description}</p>
-          <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
-            {rating && <span style={{ color: '#f59e0b' }}>⭐ {rating}</span>}
-            {price && <span style={{ color: '#004C8C' }}>💰 {price}</span>}
+    <div>
+      <div style={{
+        border: '1px solid #e2e8f0',
+        borderRadius: '12px',
+        padding: '16px',
+        margin: '8px 0',
+        backgroundColor: 'white',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          {image && (
+            <div style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '8px',
+              backgroundColor: '#f1f5f9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#64748b',
+              fontSize: '12px',
+              flexShrink: 0
+            }}>
+              📍
+            </div>
+          )}
+          <div style={{ flex: 1 }}>
+            <div style={{ marginBottom: '4px' }}>
+              <h4 style={{ margin: '0', color: '#004C8C', fontSize: '16px' }}>
+                <a 
+                  href={mapLink} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{ 
+                    color: '#004C8C',
+                    textDecoration: 'underline',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {name}
+                </a>
+              </h4>
+            </div>
+            <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#64748b' }}>{description}</p>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
+              {rating && <span style={{ color: '#f59e0b' }}>⭐ {rating}</span>}
+              {price && <span style={{ color: '#004C8C' }}>💰 {price}</span>}
+            </div>
           </div>
         </div>
       </div>
+      
+      {/* Photo Gallery */}
+      {photos && photos.length > 0 && (
+        <PhotoGallery images={photos} title={name} location={name} />
+      )}
     </div>
   );
 }
@@ -331,6 +452,7 @@ function renderItineraryVisual(content) {
             activities={day.activities || []}
             weather={day.weather}
             time={day.time}
+            photos={day.photos || getDefaultPhotos(day.activities)}
           />
         ))}
       </div>
@@ -338,6 +460,47 @@ function renderItineraryVisual(content) {
   } catch (e) {
     return renderMarkdown(content);
   }
+}
+
+// Helper function to get default photos for activities
+function getDefaultPhotos(activities) {
+  if (!activities || activities.length === 0) return [];
+  
+  // Sample photos for common attractions
+  const photoMap = {
+    'Louvre Museum': [
+      'https://images.unsplash.com/photo-1546397027-4436ef0a9508?w=400',
+      'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=400'
+    ],
+    'Eiffel Tower': [
+      'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=400',
+      'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=400'
+    ],
+    'Notre Dame': [
+      'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=400',
+      'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=400'
+    ],
+    'Montmartre': [
+      'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=400',
+      'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=400'
+    ],
+    'Seine River': [
+      'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=400',
+      'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=400'
+    ]
+  };
+  
+  // Find photos for the first few activities
+  const photos = [];
+  for (const activity of activities.slice(0, 3)) {
+    const location = activity.title.match(/Visit (.+?)(?:\s\(|$)/)?.[1] || 
+                    activity.title.match(/Explore (.+?)(?:\s|$)/)?.[1];
+    if (location && photoMap[location]) {
+      photos.push(...photoMap[location]);
+    }
+  }
+  
+  return photos.slice(0, 4); // Limit to 4 photos
 }
 
 // Render location visual components
@@ -358,6 +521,7 @@ function renderLocationVisual(content) {
               image={location.image}
               rating={location.rating}
               price={location.price}
+              photos={location.photos || getLocationPhotos(location.name)}
             />
           ))
         ) : (
@@ -367,6 +531,7 @@ function renderLocationVisual(content) {
             image={locationData.image}
             rating={locationData.rating}
             price={locationData.price}
+            photos={locationData.photos || getLocationPhotos(locationData.name)}
           />
         )}
       </div>
@@ -374,6 +539,42 @@ function renderLocationVisual(content) {
   } catch (e) {
     return renderMarkdown(content);
   }
+}
+
+// Helper function to get photos for locations
+function getLocationPhotos(locationName) {
+  const photoMap = {
+    'Louvre Museum': [
+      'https://images.unsplash.com/photo-1546397027-4436ef0a9508?w=400',
+      'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=400'
+    ],
+    'Eiffel Tower': [
+      'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=400',
+      'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=400'
+    ],
+    'Notre Dame': [
+      'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=400',
+      'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=400'
+    ],
+    'Montmartre': [
+      'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=400',
+      'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=400'
+    ],
+    'Seine River': [
+      'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=400',
+      'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=400'
+    ],
+    'Arc de Triomphe': [
+      'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=400',
+      'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=400'
+    ],
+    'Champs-Élysées': [
+      'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=400',
+      'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=400'
+    ]
+  };
+  
+  return photoMap[locationName] || [];
 }
 
 // Enhanced markdown renderer with visual components for travel assistant responses
