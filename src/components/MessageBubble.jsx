@@ -186,6 +186,7 @@ function LocationCard({ name, description, image, rating, price }) {
 function renderTextWithMapLinks(text) {
   // Common attraction and location patterns
   const locationPatterns = [
+    // Tokyo attractions
     /(Senso-ji Temple)/g,
     /(Tsukiji Outer Market)/g,
     /(Harajuku district)/g,
@@ -199,21 +200,44 @@ function renderTextWithMapLinks(text) {
     /(Imperial Palace)/g,
     /(East Gardens)/g,
     /(Roppongi area)/g,
+    
+    // Paris attractions
     /(Eiffel Tower)/g,
     /(Louvre Museum)/g,
     /(Notre-Dame)/g,
     /(Champs-Élysées)/g,
+    /(Arc de Triomphe)/g,
+    /(Montmartre)/g,
+    /(Sacré-Cœur Basilica)/g,
+    /(Orsay Museum)/g,
+    /(Palace of Versailles)/g,
+    /(Hall of Mirrors)/g,
+    /(Marie Antoinette's Estate)/g,
+    /(Seine River)/g,
+    /(Seine River Cruise)/g,
+    
+    // Paris restaurants and cafes
+    /(Le Procope)/g,
+    /(Breizh Café)/g,
+    
+    // New York attractions
     /(Times Square)/g,
     /(Central Park)/g,
     /(Statue of Liberty)/g,
     /(Brooklyn Bridge)/g,
+    
+    // San Francisco attractions
     /(Golden Gate Bridge)/g,
     /(Alcatraz Island)/g,
     /(Fisherman's Wharf)/g,
+    
+    // London attractions
     /(Big Ben)/g,
     /(London Eye)/g,
     /(Tower Bridge)/g,
     /(Buckingham Palace)/g,
+    
+    // Rome attractions
     /(Colosseum)/g,
     /(Vatican City)/g,
     /(Trevi Fountain)/g,
@@ -223,6 +247,37 @@ function renderTextWithMapLinks(text) {
   let result = text;
   
   locationPatterns.forEach(pattern => {
+    result = result.replace(pattern, (match, location) => {
+      const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+      return `<a href="${mapLink}" target="_blank" rel="noopener noreferrer" style="color: #004C8C; text-decoration: underline; font-weight: bold;">${location}</a>`;
+    });
+  });
+
+  // Additional generic patterns for restaurants, cafes, and other locations
+  const genericPatterns = [
+    // Restaurant patterns
+    /(Le [A-Z][a-z]+)/g,  // Le Procope, Le Bistro, etc.
+    /([A-Z][a-z]+ Café)/g,  // Breizh Café, etc.
+    /([A-Z][a-z]+ Restaurant)/g,  // Any Restaurant
+    /([A-Z][a-z]+ Bistro)/g,  // Any Bistro
+    
+    // River and water patterns
+    /(Seine River)/g,
+    /(River [A-Z][a-z]+)/g,
+    
+    // Museum patterns
+    /([A-Z][a-z]+ Museum)/g,
+    
+    // Palace and estate patterns
+    /(Palace of [A-Z][a-z]+)/g,
+    /([A-Z][a-z]+'s Estate)/g,
+    
+    // Garden patterns
+    /(Gardens of [A-Z][a-z]+)/g,
+    /([A-Z][a-z]+ Gardens)/g
+  ];
+
+  genericPatterns.forEach(pattern => {
     result = result.replace(pattern, (match, location) => {
       const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
       return `<a href="${mapLink}" target="_blank" rel="noopener noreferrer" style="color: #004C8C; text-decoration: underline; font-weight: bold;">${location}</a>`;
