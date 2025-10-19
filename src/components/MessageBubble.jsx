@@ -204,21 +204,35 @@ function renderTextWithMapLinks(text) {
     // Paris attractions
     /(Eiffel Tower)/g,
     /(Louvre Museum)/g,
+    /(Notre Dame)/g,
     /(Notre-Dame)/g,
     /(Champs-Élysées)/g,
     /(Arc de Triomphe)/g,
     /(Montmartre)/g,
     /(Sacré-Cœur Basilica)/g,
+    /(Musée d'Orsay)/g,
     /(Orsay Museum)/g,
     /(Palace of Versailles)/g,
     /(Hall of Mirrors)/g,
     /(Marie Antoinette's Estate)/g,
     /(Seine River)/g,
     /(Seine River Cruise)/g,
+    /(Luxembourg Gardens)/g,
+    /(Jardin des Tuileries)/g,
+    /(Île de la Cité)/g,
+    /(Canal Saint-Martin)/g,
+    /(Centre Pompidou)/g,
+    /(Palace of Fontainebleau)/g,
+    /(Le Marais)/g,
+    /(Marché des Enfants Rouges)/g,
+    /(Moulin Rouge)/g,
     
     // Paris restaurants and cafes
     /(Le Procope)/g,
     /(Breizh Café)/g,
+    /(Pierre Hermé)/g,
+    /(Le Meurice)/g,
+    /(Galeries Lafayette)/g,
     
     // New York attractions
     /(Times Square)/g,
@@ -267,6 +281,7 @@ function renderTextWithMapLinks(text) {
     
     // Museum patterns
     /([A-Z][a-z]+ Museum)/g,
+    /(Musée [a-z]+)/g,  // Musée d'Orsay, etc.
     
     // Palace and estate patterns
     /(Palace of [A-Z][a-z]+)/g,
@@ -274,7 +289,20 @@ function renderTextWithMapLinks(text) {
     
     // Garden patterns
     /(Gardens of [A-Z][a-z]+)/g,
-    /([A-Z][a-z]+ Gardens)/g
+    /([A-Z][a-z]+ Gardens)/g,
+    /(Jardin [a-z]+)/g,  // Jardin des Tuileries, etc.
+    
+    // Market patterns
+    /(Marché [a-z]+)/g,  // Marché des Enfants Rouges, etc.
+    
+    // Neighborhood patterns
+    /(Le [A-Z][a-z]+)/g,  // Le Marais, etc.
+    /([A-Z][a-z]+ district)/g,  // Montmartre district, etc.
+    
+    // Entertainment patterns
+    /([A-Z][a-z]+ Rouge)/g,  // Moulin Rouge, etc.
+    /([A-Z][a-z]+ Theatre)/g,  // Any Theatre
+    /([A-Z][a-z]+ Theater)/g,  // Any Theater
   ];
 
   genericPatterns.forEach(pattern => {
