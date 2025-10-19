@@ -1,8 +1,319 @@
 import React from 'react';
 
-// Simple markdown renderer for travel assistant responses
+// Visual components for enhanced itinerary display
+function ItineraryCard({ day, activities, weather, time }) {
+  // Helper function to create Google Maps link
+  const createMapLink = (location) => {
+    const encodedLocation = encodeURIComponent(location);
+    return `https://www.google.com/maps/search/?api=1&query=${encodedLocation}`;
+  };
+
+  // Helper function to extract location from activity title
+  const extractLocation = (title) => {
+    // Common patterns for extracting location names
+    const patterns = [
+      /Visit (.+?)(?:\s\(|$)/,
+      /Explore (.+?)(?:\s|$)/,
+      /Discover (.+?)(?:\s|$)/,
+      /Enjoy (.+?)(?:\s|$)/,
+      /Experience (.+?)(?:\s|$)/,
+      /Shop and dine in (.+?)(?:\s|$)/
+    ];
+    
+    for (const pattern of patterns) {
+      const match = title.match(pattern);
+      if (match) {
+        return match[1].trim();
+      }
+    }
+    return null;
+  };
+
+  return (
+    <div style={{
+      border: '1px solid #e2e8f0',
+      borderRadius: '12px',
+      padding: '16px',
+      margin: '12px 0',
+      backgroundColor: '#f8fafc',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+        <div style={{
+          width: '40px',
+          height: '40px',
+          borderRadius: '50%',
+          backgroundColor: '#004C8C',
+          color: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 'bold',
+          marginRight: '12px'
+        }}>
+          {day}
+        </div>
+        <div>
+          <h4 style={{ margin: '0', color: '#004C8C', fontSize: '16px' }}>Day {day}</h4>
+          {time && <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>⏰ {time}</p>}
+          {weather && <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>🌤️ {weather}</p>}
+        </div>
+      </div>
+      <div>
+        {activities.map((activity, index) => {
+          const location = extractLocation(activity.title);
+          const mapLink = location ? createMapLink(location) : null;
+          
+          return (
+            <div key={index} style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              marginBottom: '8px',
+              padding: '8px',
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <div style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: '#004C8C',
+                marginRight: '12px',
+                marginTop: '6px',
+                flexShrink: 0
+              }}></div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: '500', marginBottom: '2px' }}>
+                  {activity.title}
+                  {mapLink && (
+                    <a 
+                      href={mapLink} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={{ 
+                        marginLeft: '8px',
+                        fontSize: '12px',
+                        color: '#004C8C',
+                        textDecoration: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      🗺️ Map
+                    </a>
+                  )}
+                </div>
+                {activity.description && (
+                  <div style={{ fontSize: '14px', color: '#64748b' }}>{activity.description}</div>
+                )}
+                {activity.duration && (
+                  <div style={{ fontSize: '12px', color: '#004C8C', marginTop: '4px' }}>
+                    ⏱️ {activity.duration}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function LocationCard({ name, description, image, rating, price }) {
+  // Helper function to create Google Maps link
+  const createMapLink = (location) => {
+    const encodedLocation = encodeURIComponent(location);
+    return `https://www.google.com/maps/search/?api=1&query=${encodedLocation}`;
+  };
+
+  const mapLink = createMapLink(name);
+
+  return (
+    <div style={{
+      border: '1px solid #e2e8f0',
+      borderRadius: '12px',
+      padding: '16px',
+      margin: '8px 0',
+      backgroundColor: 'white',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+        {image && (
+          <div style={{
+            width: '80px',
+            height: '80px',
+            borderRadius: '8px',
+            backgroundColor: '#f1f5f9',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#64748b',
+            fontSize: '12px',
+            flexShrink: 0
+          }}>
+            📍
+          </div>
+        )}
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <h4 style={{ margin: '0', color: '#004C8C', fontSize: '16px' }}>{name}</h4>
+            <a 
+              href={mapLink} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{ 
+                fontSize: '12px',
+                color: '#004C8C',
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '2px 6px',
+                border: '1px solid #004C8C',
+                borderRadius: '4px',
+                backgroundColor: 'transparent'
+              }}
+            >
+              🗺️ Map
+            </a>
+          </div>
+          <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#64748b' }}>{description}</p>
+          <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
+            {rating && <span style={{ color: '#f59e0b' }}>⭐ {rating}</span>}
+            {price && <span style={{ color: '#004C8C' }}>💰 {price}</span>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Helper function to render text with map links
+function renderTextWithMapLinks(text) {
+  // Common attraction and location patterns
+  const locationPatterns = [
+    /(Senso-ji Temple)/g,
+    /(Tsukiji Outer Market)/g,
+    /(Harajuku district)/g,
+    /(Shibuya Crossing)/g,
+    /(Meiji Shrine)/g,
+    /(Yoyogi Park)/g,
+    /(Asakusa district)/g,
+    /(Tokyo Skytree)/g,
+    /(Akihabara)/g,
+    /(Ginza)/g,
+    /(Imperial Palace)/g,
+    /(East Gardens)/g,
+    /(Roppongi area)/g,
+    /(Eiffel Tower)/g,
+    /(Louvre Museum)/g,
+    /(Notre-Dame)/g,
+    /(Champs-Élysées)/g,
+    /(Times Square)/g,
+    /(Central Park)/g,
+    /(Statue of Liberty)/g,
+    /(Brooklyn Bridge)/g,
+    /(Golden Gate Bridge)/g,
+    /(Alcatraz Island)/g,
+    /(Fisherman's Wharf)/g,
+    /(Big Ben)/g,
+    /(London Eye)/g,
+    /(Tower Bridge)/g,
+    /(Buckingham Palace)/g,
+    /(Colosseum)/g,
+    /(Vatican City)/g,
+    /(Trevi Fountain)/g,
+    /(Spanish Steps)/g
+  ];
+
+  let result = text;
+  
+  locationPatterns.forEach(pattern => {
+    result = result.replace(pattern, (match, location) => {
+      const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+      return `${location} <a href="${mapLink}" target="_blank" rel="noopener noreferrer" style="color: #004C8C; text-decoration: none; font-size: 12px;">🗺️</a>`;
+    });
+  });
+
+  return <span dangerouslySetInnerHTML={{ __html: result }} />;
+}
+
+// Render itinerary visual components
+function renderItineraryVisual(content) {
+  const itineraryMatch = content.match(/```itinerary\n([\s\S]*?)\n```/);
+  if (!itineraryMatch) return renderMarkdown(content);
+  
+  try {
+    const itineraryData = JSON.parse(itineraryMatch[1]);
+    return (
+      <div style={{ margin: '16px 0' }}>
+        {itineraryData.days?.map((day, index) => (
+          <ItineraryCard
+            key={index}
+            day={day.day || index + 1}
+            activities={day.activities || []}
+            weather={day.weather}
+            time={day.time}
+          />
+        ))}
+      </div>
+    );
+  } catch (e) {
+    return renderMarkdown(content);
+  }
+}
+
+// Render location visual components
+function renderLocationVisual(content) {
+  const locationMatch = content.match(/```location\n([\s\S]*?)\n```/);
+  if (!locationMatch) return renderMarkdown(content);
+  
+  try {
+    const locationData = JSON.parse(locationMatch[1]);
+    return (
+      <div style={{ margin: '16px 0' }}>
+        {Array.isArray(locationData) ? (
+          locationData.map((location, index) => (
+            <LocationCard
+              key={index}
+              name={location.name}
+              description={location.description}
+              image={location.image}
+              rating={location.rating}
+              price={location.price}
+            />
+          ))
+        ) : (
+          <LocationCard
+            name={locationData.name}
+            description={locationData.description}
+            image={locationData.image}
+            rating={locationData.rating}
+            price={locationData.price}
+          />
+        )}
+      </div>
+    );
+  } catch (e) {
+    return renderMarkdown(content);
+  }
+}
+
+// Enhanced markdown renderer with visual components for travel assistant responses
 function renderMarkdown(content) {
   if (!content) return '';
+  
+  // Check for special visual patterns first
+  if (content.includes('```itinerary')) {
+    return renderItineraryVisual(content);
+  }
+  
+  if (content.includes('```location')) {
+    return renderLocationVisual(content);
+  }
   
   // Split content into lines for processing
   const lines = content.split('\n');
@@ -40,7 +351,7 @@ function renderMarkdown(content) {
         inTable = false;
         tableRows = [];
       }
-      elements.push(<div key={i} style={{ margin: '4px 0', paddingLeft: '16px' }}>• {line.substring(2)}</div>);
+      elements.push(<div key={i} style={{ margin: '4px 0', paddingLeft: '16px' }}>• {renderTextWithMapLinks(line.substring(2))}</div>);
     }
     // Handle numbered lists
     else if (/^\d+\.\s/.test(line)) {
@@ -50,7 +361,7 @@ function renderMarkdown(content) {
         inTable = false;
         tableRows = [];
       }
-      elements.push(<div key={i} style={{ margin: '4px 0', paddingLeft: '16px' }}>{line}</div>);
+      elements.push(<div key={i} style={{ margin: '4px 0', paddingLeft: '16px' }}>{renderTextWithMapLinks(line)}</div>);
     }
     // Handle regular paragraphs
     else if (line) {
@@ -60,7 +371,7 @@ function renderMarkdown(content) {
         inTable = false;
         tableRows = [];
       }
-      elements.push(<div key={i} style={{ margin: '6px 0', lineHeight: '1.5' }}>{line}</div>);
+      elements.push(<div key={i} style={{ margin: '6px 0', lineHeight: '1.5' }}>{renderTextWithMapLinks(line)}</div>);
     }
     // Handle empty lines
     else {
