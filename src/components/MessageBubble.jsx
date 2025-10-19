@@ -85,24 +85,20 @@ function ItineraryCard({ day, activities, weather, time }) {
               }}></div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: '500', marginBottom: '2px' }}>
-                  {activity.title}
-                  {mapLink && (
+                  {mapLink ? (
                     <a 
                       href={mapLink} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       style={{ 
-                        marginLeft: '8px',
-                        fontSize: '12px',
                         color: '#004C8C',
-                        textDecoration: 'none',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
+                        textDecoration: 'none'
                       }}
                     >
-                      🗺️ Map
+                      {activity.title}
                     </a>
+                  ) : (
+                    activity.title
                   )}
                 </div>
                 {activity.description && (
@@ -158,27 +154,20 @@ function LocationCard({ name, description, image, rating, price }) {
           </div>
         )}
         <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <h4 style={{ margin: '0', color: '#004C8C', fontSize: '16px' }}>{name}</h4>
-            <a 
-              href={mapLink} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              style={{ 
-                fontSize: '12px',
-                color: '#004C8C',
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '2px 6px',
-                border: '1px solid #004C8C',
-                borderRadius: '4px',
-                backgroundColor: 'transparent'
-              }}
-            >
-              🗺️ Map
-            </a>
+          <div style={{ marginBottom: '4px' }}>
+            <h4 style={{ margin: '0', color: '#004C8C', fontSize: '16px' }}>
+              <a 
+                href={mapLink} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ 
+                  color: '#004C8C',
+                  textDecoration: 'none'
+                }}
+              >
+                {name}
+              </a>
+            </h4>
           </div>
           <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#64748b' }}>{description}</p>
           <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
@@ -234,7 +223,7 @@ function renderTextWithMapLinks(text) {
   locationPatterns.forEach(pattern => {
     result = result.replace(pattern, (match, location) => {
       const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
-      return `${location} <a href="${mapLink}" target="_blank" rel="noopener noreferrer" style="color: #004C8C; text-decoration: none; font-size: 12px;">🗺️</a>`;
+      return `<a href="${mapLink}" target="_blank" rel="noopener noreferrer" style="color: #004C8C; text-decoration: none;">${location}</a>`;
     });
   });
 
