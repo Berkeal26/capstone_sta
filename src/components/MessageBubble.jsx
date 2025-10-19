@@ -92,7 +92,7 @@ function ItineraryCard({ day, activities, weather, time }) {
                       rel="noopener noreferrer"
                       style={{ 
                         color: '#004C8C',
-                        textDecoration: 'none',
+                        textDecoration: 'underline',
                         fontWeight: 'bold'
                       }}
                     >
@@ -163,7 +163,7 @@ function LocationCard({ name, description, image, rating, price }) {
                 rel="noopener noreferrer"
                 style={{ 
                   color: '#004C8C',
-                  textDecoration: 'none',
+                  textDecoration: 'underline',
                   fontWeight: 'bold'
                 }}
               >
@@ -225,7 +225,7 @@ function renderTextWithMapLinks(text) {
   locationPatterns.forEach(pattern => {
     result = result.replace(pattern, (match, location) => {
       const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
-      return `<a href="${mapLink}" target="_blank" rel="noopener noreferrer" style="color: #004C8C; text-decoration: none; font-weight: bold;">${location}</a>`;
+      return `<a href="${mapLink}" target="_blank" rel="noopener noreferrer" style="color: #004C8C; text-decoration: underline; font-weight: bold;">${location}</a>`;
     });
   });
 
