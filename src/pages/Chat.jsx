@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import MessageBubble from '../components/MessageBubble';
 import ChatInput from '../components/ChatInput';
+import { FlightDashboard } from '../components/dashboard/FlightDashboard';
 
 // Location detection utility
 async function getLocationContext() {
@@ -88,7 +89,7 @@ async function sendToApi(messages, context, sessionId) {
   return res.json();
 }
 
-export default function Chat() {
+export default function Chat({ onShowDashboard, showDashboard, dashboardData, onHideDashboard }) {
   const [messages, setMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState(null);
@@ -147,6 +148,21 @@ export default function Chat() {
     }
   }, [messages, isTyping]);
 
+  // Check if message contains flight/price related keywords
+  const shouldShowDashboard = (message) => {
+    const priceKeywords = [
+      'price', 'prices', 'cost', 'costs', 'expensive', 'cheap', 'cheapest', 'budget', 
+      'affordable', 'fare', 'fares', 'flight', 'flights', 'airline', 'airlines', 
+      'ticket', 'tickets', 'book', 'booking', 'search flights', 'find flights', 
+      'compare', 'comparison', 'options', 'available', 'schedule', 'departure', 
+      'arrival', 'route', 'destination', 'travel', 'trip'
+    ];
+    const lowerMessage = message.toLowerCase();
+    const shouldShow = priceKeywords.some(keyword => lowerMessage.includes(keyword));
+    console.log('shouldShowDashboard check:', { message, shouldShow, matchedKeywords: priceKeywords.filter(k => lowerMessage.includes(k)) });
+    return shouldShow;
+  };
+
   const handleSend = async (text) => {
     const userMsg = { role: 'user', content: text, timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) };
     setMessages((prev) => [...prev, userMsg]);
@@ -159,6 +175,94 @@ export default function Chat() {
           console.log('API Response:', data);
           const reply = data.reply || '';
           setMessages((prev) => [...prev, { role: 'assistant', content: reply, timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) }]);
+          
+          // Check if we should show dashboard
+          if (shouldShowDashboard(text) && onShowDashboard) {
+            console.log('Triggering dashboard for text:', text);
+            console.log('onShowDashboard function:', onShowDashboard);
+            
+            // Force dashboard to show immediately
+            onShowDashboard({
+              route: {
+                departure: 'New York',
+                destination: 'Los Angeles', 
+                departureCode: 'NYC',
+                destinationCode: 'LAX',
+                date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              },
+              flights: [],
+              priceData: [],
+              hasRealData: false
+            });
+            
+            // Extract route information from the message if possible
+            let routeInfo = {
+              departure: 'New York',
+              destination: 'Los Angeles',
+              departureCode: 'NYC',
+              destinationCode: 'LAX',
+              date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            };
+
+            // Try to extract route from various patterns
+            const patterns = [
+              /(?:from|to|between)\s+([A-Za-z\s]+?)\s+(?:to|and)\s+([A-Za-z\s]+)/i,
+              /(?:flights?|tickets?)\s+(?:to|from)\s+([A-Za-z\s]+)/i,
+              /([A-Za-z\s]+)\s+(?:to|→|->)\s+([A-Za-z\s]+)/i,
+              /(?:search|find|book)\s+(?:flights?|tickets?)\s+(?:to|for)\s+([A-Za-z\s]+)/i
+            ];
+
+            for (const pattern of patterns) {
+              const match = text.match(pattern);
+              if (match) {
+                if (match[2]) {
+                  // Two cities found
+                  routeInfo.departure = match[1].trim();
+                  routeInfo.destination = match[2].trim();
+                } else if (match[1]) {
+                  // One city found, assume it's destination
+                  routeInfo.destination = match[1].trim();
+                }
+                
+                // Generate airport codes
+                routeInfo.departureCode = routeInfo.departure.substring(0, 3).toUpperCase();
+                routeInfo.destinationCode = routeInfo.destination.substring(0, 3).toUpperCase();
+                break;
+              }
+            }
+
+            // Create dynamic price data based on the query
+            const basePrice = Math.floor(Math.random() * 200) + 300; // Random base price
+            const dynamicPriceData = Array.from({ length: 7 }, (_, i) => ({
+              date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              price: basePrice + Math.floor(Math.random() * 100) - 50,
+              optimal: basePrice - 20
+            }));
+
+            // Create dynamic flights data
+            const airlines = ['Delta Airlines', 'United Airlines', 'American Airlines', 'Southwest Airlines', 'JetBlue Airways', 'Spirit Airlines'];
+            const dynamicFlightsData = airlines.slice(0, 4).map((airline, index) => ({
+              id: (index + 1).toString(),
+              airline: airline,
+              flightNumber: `${airline.split(' ')[0].substring(0, 2).toUpperCase()} ${Math.floor(Math.random() * 9000) + 1000}`,
+              departure: `${6 + index * 2}:${index % 2 === 0 ? '00' : '30'} AM`,
+              arrival: `${9 + index * 2}:${index % 2 === 0 ? '30' : '00'} AM`,
+              duration: `${3 + Math.floor(Math.random() * 2)}h ${Math.floor(Math.random() * 60)}m`,
+              price: basePrice + Math.floor(Math.random() * 100) - 50,
+              isOptimal: index === 0,
+              stops: Math.floor(Math.random() * 2)
+            }));
+
+            // Update dashboard with new data
+            setTimeout(() => {
+              onShowDashboard({
+                route: routeInfo,
+                flights: dynamicFlightsData,
+                priceData: dynamicPriceData,
+                hasRealData: false // Using dynamic mock data
+              });
+            }, 100);
+          }
         } catch (e) {
           console.error('API Error:', e);
           setError('Something went wrong. Please try again.');
@@ -171,6 +275,95 @@ export default function Chat() {
   const rendered = useMemo(() => messages.map((m, idx) => (
     <MessageBubble key={idx} role={m.role} content={m.content} timestamp={m.timestamp} />
   )), [messages]);
+
+  // If dashboard should be shown, render split view
+  if (showDashboard) {
+    console.log('Rendering split view with dashboard data:', dashboardData);
+    console.log('showDashboard state:', showDashboard);
+    return (
+      <div style={{ 
+        height: '100vh', 
+        display: 'grid', 
+        gridTemplateColumns: '1fr 1fr', 
+        gap: '16px',
+        padding: '16px',
+        background: '#ffffff'
+      }}>
+        {/* Left: Chat Interface */}
+        <div style={{ 
+          height: '100%', 
+          display: 'flex', 
+          flexDirection: 'column',
+          background: '#ffffff',
+          borderRadius: '12px',
+          border: '1px solid rgba(2, 6, 23, 0.06)',
+          boxShadow: '0 1px 2px rgba(2, 6, 23, 0.06), 0 4px 12px rgba(2, 6, 23, 0.04)'
+        }}>
+          {/* Chat Header */}
+          <div style={{ 
+            padding: '16px 20px', 
+            borderBottom: '1px solid rgba(2, 6, 23, 0.06)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '32px', height: '32px', background: '#E6F7FF', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img src={process.env.PUBLIC_URL + '/Miles_logo.png'} alt="Miles" style={{ width: '24px', height: '24px' }} />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#004C8C' }}>Miles</h2>
+                <p style={{ margin: 0, fontSize: '12px', color: 'rgba(2, 6, 23, 0.6)' }}>Travel Assistant</p>
+              </div>
+            </div>
+            <button 
+              onClick={onHideDashboard}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'rgba(2, 6, 23, 0.6)',
+                cursor: 'pointer',
+                padding: '4px',
+                borderRadius: '4px'
+              }}
+              title="Close Dashboard"
+            >
+              ✕
+            </button>
+          </div>
+          
+          {/* Chat Messages */}
+          <div style={{ flex: 1, overflow: 'auto', padding: '16px' }} ref={scrollRef}>
+            {rendered}
+            {isTyping && (
+              <div className="message-row">
+                <div className="avatar avatar-assistant">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="8" fill="#00ADEF"/>
+                  </svg>
+                </div>
+                <div className="typing">
+                  <span className="dot" />
+                  <span className="dot" />
+                  <span className="dot" />
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Chat Input */}
+          <div style={{ padding: '16px', borderTop: '1px solid rgba(2, 6, 23, 0.06)' }}>
+            <ChatInput onSend={handleSend} disabled={isTyping} />
+          </div>
+        </div>
+        
+        {/* Right: Flight Dashboard */}
+        <div style={{ height: '100%' }}>
+          <FlightDashboard searchData={dashboardData} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="chat-page">
