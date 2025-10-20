@@ -75,15 +75,36 @@ async function getLocationContext() {
   };
 }
 
+// Helper function to clean context data
+function cleanContext(context) {
+  if (!context) return context;
+  
+  const cleaned = { ...context };
+  if (cleaned.user_location) {
+    const location = { ...cleaned.user_location };
+    // Remove null/undefined values
+    Object.keys(location).forEach(key => {
+      if (location[key] === null || location[key] === undefined) {
+        delete location[key];
+      }
+    });
+    cleaned.user_location = location;
+  }
+  return cleaned;
+}
+
 async function sendToApi(messages, context, sessionId) {
-  const base = process.env.REACT_APP_API_BASE ?? 'https://capstone-oj8xlxyhj-berkes-projects-f48a9605.vercel.app';
+  const base = process.env.REACT_APP_API_BASE ?? 'https://capstone-79wenhjg2-berkes-projects-f48a9605.vercel.app';
   console.log('API Base URL:', base);
   console.log('Making request to:', `${base}/api/chat`);
+  
+  const cleanedContext = cleanContext(context);
+  console.log('Cleaned context:', cleanedContext);
   
   const res = await fetch(`${base}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, context, session_id: sessionId }),
+    body: JSON.stringify({ messages, context: cleanedContext, session_id: sessionId }),
   });
   if (!res.ok) throw new Error('API error');
   return res.json();
