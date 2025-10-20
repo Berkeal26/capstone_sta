@@ -150,16 +150,43 @@ export default function Chat({ onShowDashboard, showDashboard, dashboardData, on
 
   // Check if message contains flight/price related keywords
   const shouldShowDashboard = (message) => {
-    const priceKeywords = [
-      'price', 'prices', 'cost', 'costs', 'expensive', 'cheap', 'cheapest', 'budget', 
-      'affordable', 'fare', 'fares', 'flight', 'flights', 'airline', 'airlines', 
-      'ticket', 'tickets', 'book', 'booking', 'search flights', 'find flights', 
-      'compare', 'comparison', 'options', 'available', 'schedule', 'departure', 
-      'arrival', 'route', 'destination', 'travel', 'trip'
+    const flightKeywords = [
+      // Core flight terms
+      'flight', 'flights', 'airline', 'airlines', 'airplane', 'aircraft', 'plane',
+      'ticket', 'tickets', 'booking', 'book', 'reserve', 'reservation',
+      
+      // Travel terms
+      'travel', 'trip', 'journey', 'vacation', 'holiday', 'getaway',
+      'destination', 'departure', 'arrival', 'airport', 'terminal',
+      
+      // Price and cost terms
+      'price', 'prices', 'cost', 'costs', 'expensive', 'cheap', 'cheapest', 
+      'budget', 'affordable', 'fare', 'fares', 'rate', 'rates',
+      
+      // Action terms
+      'search', 'find', 'look for', 'show me', 'get me', 'need', 'want',
+      'compare', 'comparison', 'options', 'available', 'schedule',
+      
+      // Location terms
+      'to', 'from', 'between', 'route', 'way', 'path',
+      
+      // Time terms
+      'today', 'tomorrow', 'next week', 'this month', 'soon', 'when',
+      
+      // Common phrases
+      'search flights', 'find flights', 'book flights', 'flight search',
+      'airline tickets', 'plane tickets', 'flight booking', 'travel booking'
     ];
+    
     const lowerMessage = message.toLowerCase();
-    const shouldShow = priceKeywords.some(keyword => lowerMessage.includes(keyword));
-    console.log('shouldShowDashboard check:', { message, shouldShow, matchedKeywords: priceKeywords.filter(k => lowerMessage.includes(k)) });
+    const shouldShow = flightKeywords.some(keyword => lowerMessage.includes(keyword));
+    
+    console.log('Dashboard trigger check:', { 
+      message, 
+      shouldShow, 
+      matchedKeywords: flightKeywords.filter(k => lowerMessage.includes(k)) 
+    });
+    
     return shouldShow;
   };
 
@@ -179,89 +206,48 @@ export default function Chat({ onShowDashboard, showDashboard, dashboardData, on
           // Check if we should show dashboard
           if (shouldShowDashboard(text) && onShowDashboard) {
             console.log('Triggering dashboard for text:', text);
-            console.log('onShowDashboard function:', onShowDashboard);
+            console.log('API Response data:', data);
             
-            // Force dashboard to show immediately
-            onShowDashboard({
-              route: {
-                departure: 'New York',
-                destination: 'Los Angeles', 
-                departureCode: 'NYC',
-                destinationCode: 'LAX',
-                date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-              },
-              flights: [],
-              priceData: [],
-              hasRealData: false
-            });
-            
-            // Extract route information from the message if possible
-            let routeInfo = {
-              departure: 'New York',
-              destination: 'Los Angeles',
-              departureCode: 'NYC',
-              destinationCode: 'LAX',
-              date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            };
+            // Check if the API response contains flight data
+            if (data.data_fetched && data.amadeus_data) {
+              console.log('Using real flight data from API');
+              onShowDashboard(data.amadeus_data);
+            } else {
+              console.log('Using fallback mock data');
+              // Fallback to mock data if no real data available
+              const basePrice = Math.floor(Math.random() * 200) + 300;
+              const dynamicPriceData = Array.from({ length: 7 }, (_, i) => ({
+                date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                price: basePrice + Math.floor(Math.random() * 100) - 50,
+                optimal: basePrice - 20
+              }));
 
-            // Try to extract route from various patterns
-            const patterns = [
-              /(?:from|to|between)\s+([A-Za-z\s]+?)\s+(?:to|and)\s+([A-Za-z\s]+)/i,
-              /(?:flights?|tickets?)\s+(?:to|from)\s+([A-Za-z\s]+)/i,
-              /([A-Za-z\s]+)\s+(?:to|→|->)\s+([A-Za-z\s]+)/i,
-              /(?:search|find|book)\s+(?:flights?|tickets?)\s+(?:to|for)\s+([A-Za-z\s]+)/i
-            ];
+              const airlines = ['Delta Airlines', 'United Airlines', 'American Airlines', 'Southwest Airlines', 'JetBlue Airways', 'Spirit Airlines'];
+              const dynamicFlightsData = airlines.slice(0, 4).map((airline, index) => ({
+                id: (index + 1).toString(),
+                airline: airline,
+                flightNumber: `${airline.split(' ')[0].substring(0, 2).toUpperCase()} ${Math.floor(Math.random() * 9000) + 1000}`,
+                departure: `${6 + index * 2}:${index % 2 === 0 ? '00' : '30'} AM`,
+                arrival: `${9 + index * 2}:${index % 2 === 0 ? '30' : '00'} AM`,
+                duration: `${3 + Math.floor(Math.random() * 2)}h ${Math.floor(Math.random() * 60)}m`,
+                price: basePrice + Math.floor(Math.random() * 100) - 50,
+                isOptimal: index === 0,
+                stops: Math.floor(Math.random() * 2)
+              }));
 
-            for (const pattern of patterns) {
-              const match = text.match(pattern);
-              if (match) {
-                if (match[2]) {
-                  // Two cities found
-                  routeInfo.departure = match[1].trim();
-                  routeInfo.destination = match[2].trim();
-                } else if (match[1]) {
-                  // One city found, assume it's destination
-                  routeInfo.destination = match[1].trim();
-                }
-                
-                // Generate airport codes
-                routeInfo.departureCode = routeInfo.departure.substring(0, 3).toUpperCase();
-                routeInfo.destinationCode = routeInfo.destination.substring(0, 3).toUpperCase();
-                break;
-              }
-            }
-
-            // Create dynamic price data based on the query
-            const basePrice = Math.floor(Math.random() * 200) + 300; // Random base price
-            const dynamicPriceData = Array.from({ length: 7 }, (_, i) => ({
-              date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-              price: basePrice + Math.floor(Math.random() * 100) - 50,
-              optimal: basePrice - 20
-            }));
-
-            // Create dynamic flights data
-            const airlines = ['Delta Airlines', 'United Airlines', 'American Airlines', 'Southwest Airlines', 'JetBlue Airways', 'Spirit Airlines'];
-            const dynamicFlightsData = airlines.slice(0, 4).map((airline, index) => ({
-              id: (index + 1).toString(),
-              airline: airline,
-              flightNumber: `${airline.split(' ')[0].substring(0, 2).toUpperCase()} ${Math.floor(Math.random() * 9000) + 1000}`,
-              departure: `${6 + index * 2}:${index % 2 === 0 ? '00' : '30'} AM`,
-              arrival: `${9 + index * 2}:${index % 2 === 0 ? '30' : '00'} AM`,
-              duration: `${3 + Math.floor(Math.random() * 2)}h ${Math.floor(Math.random() * 60)}m`,
-              price: basePrice + Math.floor(Math.random() * 100) - 50,
-              isOptimal: index === 0,
-              stops: Math.floor(Math.random() * 2)
-            }));
-
-            // Update dashboard with new data
-            setTimeout(() => {
               onShowDashboard({
-                route: routeInfo,
+                route: {
+                  departure: 'New York',
+                  destination: 'Los Angeles',
+                  departureCode: 'JFK',
+                  destinationCode: 'LAX',
+                  date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                },
                 flights: dynamicFlightsData,
                 priceData: dynamicPriceData,
-                hasRealData: false // Using dynamic mock data
+                hasRealData: false
               });
-            }, 100);
+            }
           }
         } catch (e) {
           console.error('API Error:', e);

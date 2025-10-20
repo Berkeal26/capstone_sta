@@ -85,6 +85,9 @@ const flightsData = [
 ];
 
 export function FlightDashboard({ searchData = null }) {
+  // Debug logging
+  console.log('FlightDashboard received searchData:', searchData);
+  
   // Use real data if provided, otherwise use mock data
   const hasRealData = searchData?.hasRealData || false;
   const displayPriceData = searchData?.priceData?.length > 0 ? searchData.priceData : priceData;
@@ -96,6 +99,13 @@ export function FlightDashboard({ searchData = null }) {
     destinationCode: 'LAX',
     date: 'Oct 23, 2025'
   };
+  
+  console.log('FlightDashboard using data:', {
+    hasRealData,
+    priceDataLength: displayPriceData.length,
+    flightsDataLength: displayFlightsData.length,
+    routeInfo
+  });
 
   return (
     <ScrollArea className="h-full">
@@ -110,6 +120,7 @@ export function FlightDashboard({ searchData = null }) {
 
         {/* Flight Map Animation */}
         <FlightMap
+          key={`flight-map-${routeInfo.departureCode}-${routeInfo.destinationCode}`}
           departure={routeInfo.departure}
           destination={routeInfo.destination}
           departureCode={routeInfo.departureCode}
@@ -117,10 +128,10 @@ export function FlightDashboard({ searchData = null }) {
         />
 
         {/* Price Chart */}
-        <PriceChart data={displayPriceData} />
+        <PriceChart key={`price-chart-${displayPriceData[0]?.date}-${displayPriceData[0]?.price}`} data={displayPriceData} />
 
         {/* Flights Table */}
-        <FlightsTable flights={displayFlightsData} />
+        <FlightsTable key={`flights-table-${displayFlightsData[0]?.id}-${displayFlightsData[0]?.price}`} flights={displayFlightsData} />
       </div>
     </ScrollArea>
   );
