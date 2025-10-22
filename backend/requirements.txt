@@ -4,6 +4,7 @@ python-dotenv
 openai==1.*
 pydantic
 pytz
+amadeus
 httpx
 cachetools
 
