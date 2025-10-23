@@ -1097,8 +1097,10 @@ def extract_dates_from_message(message):
         r'(\w+)\s+(\d+)\s+to\s+(\w+)\s+(\d+)',
         # Dash format with ordinals: "december 1st-december 5th"
         r'(\w+)\s+(\d+)(?:st|nd|rd|th)?\s*-\s*(\w+)\s*(\d+)(?:st|nd|rd|th)?',
-        # Dash format: "dec 1-dec 5"
+        # Dash format: "dec 1-dec 5" (same month, different days)
         r'(\w+)\s+(\d+)\s*-\s*(\w+)\s*(\d+)',
+        # Dash format without second month: "dec 10-17" (assume same month)
+        r'(\w+)\s+(\d+)\s*-\s*(\d+)',
         # Through format: "december 1 through december 5"
         r'(\w+)\s+(\d+)\s+through\s+(\w+)\s+(\d+)',
     ]
@@ -1111,8 +1113,8 @@ def extract_dates_from_message(message):
             break
     
     if match:
-        month1, day1, month2, day2 = match.groups()
-        logger.debug(f"Date pattern matched: {match.groups()}")
+        groups = match.groups()
+        logger.debug(f"Date pattern matched: {groups}")
         
         month_names = {
             'jan': 1, 'january': 1, 'feb': 2, 'february': 2, 'mar': 3, 'march': 3,
@@ -1121,12 +1123,24 @@ def extract_dates_from_message(message):
             'oct': 10, 'october': 10, 'nov': 11, 'november': 11, 'dec': 12, 'december': 12
         }
         
-        # Extract day numbers (remove ordinal suffixes if present)
-        day1 = int(re.sub(r'(st|nd|rd|th)$', '', day1))
-        day2 = int(re.sub(r'(st|nd|rd|th)$', '', day2))
-        
-        month1_num = month_names.get(month1.lower(), 11)
-        month2_num = month_names.get(month2.lower(), 11)
+        if len(groups) == 4:
+            # Format: "dec 10-dec 17" or "december 1 to december 5"
+            month1, day1, month2, day2 = groups
+            # Extract day numbers (remove ordinal suffixes if present)
+            day1 = int(re.sub(r'(st|nd|rd|th)$', '', day1))
+            day2 = int(re.sub(r'(st|nd|rd|th)$', '', day2))
+            
+            month1_num = month_names.get(month1.lower(), 11)
+            month2_num = month_names.get(month2.lower(), 11)
+        elif len(groups) == 3:
+            # Format: "dec 10-17" (same month, different days)
+            month1, day1, day2 = groups
+            # Extract day numbers (remove ordinal suffixes if present)
+            day1 = int(re.sub(r'(st|nd|rd|th)$', '', day1))
+            day2 = int(re.sub(r'(st|nd|rd|th)$', '', day2))
+            
+            month1_num = month_names.get(month1.lower(), 11)
+            month2_num = month1_num  # Same month for both dates
         
         # Use current year
         current_year = datetime.now().year
