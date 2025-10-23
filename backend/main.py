@@ -602,20 +602,16 @@ async def chat(req: ChatRequest):
             route_info = extract_route_from_message(user_message)
             logger.info(f"Extracted route info: {route_info}")
             
-            # Try to get real data from Amadeus API first
-            try:
-                # Extract dates from user message
-                departure_date = extract_departure_date(user_message)
-                logger.info(f"Extracted departure date: {departure_date}")
-                
-                # Temporarily use mock data to test enhanced features
-                logger.info("Using enhanced mock data for testing")
-                amadeus_data = generate_mock_flight_data(route_info, user_message)
-                    
-            except Exception as e:
-                logger.error(f"Amadeus API call failed: {e}")
-                logger.info("Falling back to mock data")
-                amadeus_data = generate_mock_flight_data(route_info, user_message)
+            # Extract dates from the user's message
+            date_info = extract_dates_from_message(user_message)
+            logger.info(f"Extracted date info: {date_info}")
+            
+            # Combine route and date information
+            route_info.update(date_info)
+            
+            # Temporarily use mock data to test enhanced features
+            logger.info("Using enhanced mock data for testing")
+            amadeus_data = generate_mock_flight_data(route_info)
             
             logger.info(f"Final amadeus_data with route: {amadeus_data.get('route', 'NO ROUTE')}")
         # If travel intent detected and has required parameters, fetch data
@@ -1049,50 +1045,131 @@ def extract_departure_date(message):
     logger.debug(f"No date found in message, using default: {default_date}")
     return default_date
 
+def extract_dates_from_message(message):
+    """Extract departure and return dates from user message"""
+    import re
+    from datetime import datetime, timedelta
+    
+    message_lower = message.lower()
+    logger.debug(f"Extracting dates from: '{message_lower}'")
+    
+    # Pattern for "november 1 to november 3" or "nov 1-nov3"
+    date_pattern = r'(\w+)\s+(\d+)\s*-\s*(\w+)\s*(\d+)'
+    match = re.search(date_pattern, message_lower)
+    
+    if match:
+        month1, day1, month2, day2 = match.groups()
+        logger.debug(f"Date pattern matched: {match.groups()}")
+        
+        month_names = {
+            'jan': 1, 'january': 1, 'feb': 2, 'february': 2, 'mar': 3, 'march': 3,
+            'apr': 4, 'april': 4, 'may': 5, 'jun': 6, 'june': 6,
+            'jul': 7, 'july': 7, 'aug': 8, 'august': 8, 'sep': 9, 'september': 9,
+            'oct': 10, 'october': 10, 'nov': 11, 'november': 11, 'dec': 12, 'december': 12
+        }
+        
+        month1_num = month_names.get(month1.lower(), 11)
+        month2_num = month_names.get(month2.lower(), 11)
+        
+        # Use current year
+        current_year = datetime.now().year
+        departure_date = datetime(current_year, month1_num, int(day1))
+        return_date = datetime(current_year, month2_num, int(day2))
+        
+        departure_display = departure_date.strftime("%b %d, %Y")
+        return_display = return_date.strftime("%b %d, %Y")
+        
+        return {
+            'departure_date': departure_date.strftime("%Y-%m-%d"),
+            'return_date': return_date.strftime("%Y-%m-%d"),
+            'departure_display': departure_display,
+            'return_display': return_display
+        }
+    
+    return {}
+
+def calculate_value_score(flight):
+    """Calculate a value score for a flight (lower is better)"""
+    price = flight.get('price', 1000)
+    duration_str = flight.get('duration', '0h 0m')
+    stops = flight.get('stops', 3)
+    
+    # Parse duration (e.g., "7h 30m" -> 7.5 hours)
+    duration_hours = 0
+    if 'h' in duration_str:
+        hours_part = duration_str.split('h')[0]
+        duration_hours = float(hours_part.strip())
+        if 'm' in duration_str:
+            mins_part = duration_str.split('h')[1].split('m')[0]
+            duration_hours += float(mins_part.strip()) / 60
+    
+    # Value score: price + (duration * 20) + (stops * 50)
+    # Lower score = better value
+    value_score = price + (duration_hours * 20) + (stops * 50)
+    return value_score
+
+def generate_flights_for_route(origin, destination, origin_code, dest_code, date, is_return=False):
+    """Generate flights for a specific route and date"""
+    import random
+    
+    airlines = ['Delta Airlines', 'United Airlines', 'American Airlines', 'Southwest Airlines', 'JetBlue Airways', 'Spirit Airlines', 'Alaska Airlines', 'Frontier Airlines', 'Hawaiian Airlines', 'Virgin America']
+    
+    flights = []
+    for i in range(6):
+        airline = random.choice(airlines)
+        price = random.randint(200, 900)
+        duration_hours = random.randint(2, 8)
+        duration_mins = random.randint(0, 59)
+        duration = f"{duration_hours}h {duration_mins}m"
+        stops = random.randint(0, 2)
+        
+        departure_hour = random.randint(6, 22)
+        departure_min = random.choice(['00', '15', '30', '45'])
+        arrival_hour = (departure_hour + duration_hours) % 24
+        arrival_min = departure_min
+        
+        flight = {
+            "id": f"{'return' if is_return else 'outbound'}_{i + 1}",
+            "airline": airline,
+            "flightNumber": f"{airline.split()[0][:2].upper()}{random.randint(1000, 9999)}",
+            "departure": f"{departure_hour:02d}:{departure_min}",
+            "arrival": f"{arrival_hour:02d}:{arrival_min}",
+            "duration": duration,
+            "price": price,
+            "stops": stops,
+            "origin": origin_code,
+            "destination": dest_code,
+            "isOptimal": False  # Will be set later
+        }
+        flights.append(flight)
+    
+    return flights
+
 def generate_mock_flight_data(route_info=None, user_message=""):
-    """Generate mock flight data for demonstration purposes"""
+    """Generate enhanced mock flight data with separate outbound/return flights and best combinations"""
     import random
     from datetime import datetime, timedelta
-    import re
     
     logger.debug(f"generate_mock_flight_data called with route_info: {route_info}")
     
-    # Try to extract dates from user message
-    base_date = None
-    if user_message:
-        # Look for date patterns like "10/26 to 10/30" or "Oct 26 to Oct 30"
-        date_patterns = [
-            r'(\d{1,2})/(\d{1,2})\s+to\s+(\d{1,2})/(\d{1,2})',  # 10/26 to 10/30
-            r'(oct|nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep)\s+(\d{1,2})\s+to\s+(oct|nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep)\s+(\d{1,2})',  # Oct 26 to Oct 30
-        ]
-        
-        for pattern in date_patterns:
-            match = re.search(pattern, user_message.lower())
-            if match:
-                if '/' in pattern:  # MM/DD format
-                    start_month, start_day = int(match.group(1)), int(match.group(2))
-                    end_month, end_day = int(match.group(3)), int(match.group(4))
-                    # Assume current year
-                    current_year = datetime.now().year
-                    base_date = datetime(current_year, start_month, start_day)
-                    break
-                else:  # Month name format
-                    month_names = {
-                        'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
-                        'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
-                    }
-                    start_month = month_names.get(match.group(1), 10)
-                    start_day = int(match.group(2))
-                    current_year = datetime.now().year
-                    base_date = datetime(current_year, start_month, start_day)
-                    break
+    # Extract dates from user message
+    date_info = extract_dates_from_message(user_message)
     
-    # Fallback to random date if no date found
-    if not base_date:
+    # Use provided dates or generate random dates
+    if route_info and 'departure_date' in route_info:
+        departure_date = route_info['departure_date']
+        return_date = route_info['return_date']
+        departure_display = route_info.get('departure_display', departure_date)
+        return_display = route_info.get('return_display', return_date)
+        print(f"DEBUG: Using provided dates - departure: {departure_date}, return: {return_date}")
+    else:
+        # Generate random dates as fallback
         base_date = datetime.now() + timedelta(days=random.randint(1, 30))
-    
-    departure_date = base_date.strftime("%Y-%m-%d")
-    return_date = (base_date + timedelta(days=random.randint(1, 7))).strftime("%Y-%m-%d")
+        departure_date = base_date.strftime("%Y-%m-%d")
+        return_date = (base_date + timedelta(days=random.randint(1, 7))).strftime("%Y-%m-%d")
+        departure_display = base_date.strftime("%b %d, %Y")
+        return_display = (base_date + timedelta(days=random.randint(1, 7))).strftime("%b %d, %Y")
+        print(f"DEBUG: Using random dates - departure: {departure_date}, return: {return_date}")
     
     # Use provided route info or fallback to random route
     if route_info:
@@ -1112,50 +1189,52 @@ def generate_mock_flight_data(route_info=None, user_message=""):
         ]
         route = random.choice(route_combinations)
     
-    # Mock flight data with more variety
-    airlines = ['Delta Airlines', 'United Airlines', 'American Airlines', 'Southwest Airlines', 'JetBlue Airways', 'Spirit Airlines', 'Alaska Airlines', 'Frontier Airlines', 'Hawaiian Airlines', 'Virgin America']
+    # Generate outbound flights (X to Y)
+    outbound_flights = generate_flights_for_route(
+        route['departure'], route['destination'], 
+        route['departureCode'], route['destinationCode'], 
+        departure_date, is_return=False
+    )
     
-    flights = []
-    for i in range(6):
-        airline = random.choice(airlines)
-        price = random.randint(200, 900)  # Wider price range
-        duration_hours = random.randint(2, 8)
-        duration_mins = random.randint(0, 59)
-        duration = f"{duration_hours}h {duration_mins}m"
-        stops = random.randint(0, 2)
-        
-        # Generate more realistic times
-        departure_hour = random.randint(6, 22)
-        departure_min = random.choice(['00', '15', '30', '45'])
-        arrival_hour = (departure_hour + duration_hours) % 24
-        arrival_min = departure_min
-        
-        flight = {
-            "id": str(i + 1),
-            "airline": airline,
-            "flightNumber": f"{airline.split()[0][:2].upper()}{random.randint(1000, 9999)}",
-            "departure": f"{departure_hour:02d}:{departure_min}",
-            "arrival": f"{arrival_hour:02d}:{arrival_min}",
-            "duration": duration,
-            "price": price,
-            "isOptimal": i == 0,  # First flight is always optimal
-            "stops": stops,
-            "origin": route["departureCode"],
-            "destination": route["destinationCode"]
-        }
-        flights.append(flight)
+    # Generate return flights (Y to X)
+    return_flights = generate_flights_for_route(
+        route['destination'], route['departure'], 
+        route['destinationCode'], route['departureCode'], 
+        return_date, is_return=True
+    )
+    
+    # Find best value flights from each direction
+    best_outbound = min(outbound_flights, key=calculate_value_score)
+    best_return = min(return_flights, key=calculate_value_score)
+    
+    # Mark the best value flights as optimal
+    for flight in outbound_flights:
+        flight['isOptimal'] = flight == best_outbound
+    for flight in return_flights:
+        flight['isOptimal'] = flight == best_return
+    
+    # Create best combination
+    total_price = best_outbound['price'] + best_return['price']
+    savings_amount = random.randint(50, 150)
+    best_combination = {
+        'outbound': best_outbound,
+        'return': best_return,
+        'totalPrice': total_price,
+        'savings': f"Save up to 15% when booking together"
+    }
+    
+    # Combine all flights for backward compatibility
+    flights = outbound_flights + return_flights
     
     # Generate consistent price data for the next 7 days
     price_data = []
-    # Use the first flight's price as base to ensure consistency
-    base_price = flights[0]["price"] if flights else 400
+    base_price = random.randint(250, 600)  # More varied base price
     
     for i in range(7):
-        date = (base_date + timedelta(days=i)).strftime("%b %d")
-        # Create realistic price variations based on the base price
+        date = (datetime.now() + timedelta(days=i)).strftime("%b %d")
         price_variation = random.randint(-50, 100)
-        price = max(200, base_price + price_variation)  # Ensure minimum price
-        optimal = max(180, base_price - random.randint(10, 40))  # Optimal is always lower
+        price = max(200, base_price + price_variation)
+        optimal = max(180, base_price - random.randint(10, 40))
         price_data.append({
             "date": date,
             "price": price,
@@ -1163,17 +1242,24 @@ def generate_mock_flight_data(route_info=None, user_message=""):
         })
     
     return {
-        "flights": flights,
+        "outboundFlights": outbound_flights,
+        "returnFlights": return_flights,
+        "bestCombination": best_combination,
+        "flights": flights,  # Keep for backward compatibility
         "priceData": price_data,
         "route": {
             "departure": route["departure"],
             "destination": route["destination"], 
             "departureCode": route["departureCode"],
             "destinationCode": route["destinationCode"],
-            "date": base_date.strftime("%b %d, %Y")
+            "date": departure_display,
+            "departure_date": departure_date,
+            "return_date": return_date,
+            "departure_display": departure_display,
+            "return_display": return_display
         },
         "hasRealData": False,
-        "message": f"Here are some great flight options from {route['departure']} to {route['destination']}! Check out the dashboard for detailed information, prices, and booking options."
+        "message": f"Here are great flight options from {route['departure']} to {route['destination']}! Check out the dashboard for detailed information, prices, and booking options."
     }
 
 def _is_iata_code(code: str) -> bool:
