@@ -2,17 +2,23 @@ import React, { useEffect, useState } from 'react';
 
 export function FlightMap({ departure, destination, departureCode, destinationCode }) {
   const [progress, setProgress] = useState(0);
+  const [animationComplete, setAnimationComplete] = useState(false);
 
   useEffect(() => {
+    if (animationComplete) return;
+    
     const interval = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 100) return 0;
+        if (prev >= 100) {
+          setAnimationComplete(true);
+          return 100;
+        }
         return prev + 0.5;
       });
     }, 50);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [animationComplete]);
 
   return (
     <div className="relative w-full h-64 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg p-8 overflow-hidden" style={{
@@ -35,11 +41,11 @@ export function FlightMap({ departure, destination, departureCode, destinationCo
         </div>
 
         {/* Destination city */}
-        <div className="absolute right-0 flex flex-col items-center">
+        <div className="absolute right-0 flex flex-col items-center max-w-[120px]">
           <div className="w-3 h-3 bg-destructive rounded-full mb-2 animate-pulse" style={{backgroundColor: '#00ADEF'}}></div>
           <div className="text-center">
             <div className="font-medium">{destinationCode}</div>
-            <div className="text-xs text-muted-foreground">{destination}</div>
+            <div className="text-xs text-muted-foreground truncate w-full" title={destination}>{destination}</div>
           </div>
         </div>
 

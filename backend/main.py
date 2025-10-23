@@ -260,30 +260,44 @@ def create_system_prompt(context, amadeus_data=None):
     if not context:
         local_time = ""
         location = "Unknown location"
+        now_iso = None
+        user_tz = None
+        user_locale = None
+        user_location_city = None
+        user_location_region = None
+        user_location_country = None
+        user_location_lat = None
+        user_location_lon = None
     else:
         local_time = format_local_time(context.now_iso, context.user_tz)
         location = get_location_string(context.user_location)
+        now_iso = context.now_iso
+        user_tz = context.user_tz
+        user_locale = context.user_locale
+        user_location_city = getattr(context.user_location, 'city', None) if context.user_location else None
+        user_location_region = getattr(context.user_location, 'region', None) if context.user_location else None
+        user_location_country = getattr(context.user_location, 'country', None) if context.user_location else None
+        user_location_lat = getattr(context.user_location, 'lat', None) if context.user_location else None
+        user_location_lon = getattr(context.user_location, 'lon', None) if context.user_location else None
     
     # Log sanitized context for debugging
     logger.info(
         "Creating system prompt - sanitized context: time=%s tz=%s city=%s country=%s lat=%s lon=%s",
-        getattr(context, 'now_iso', None), getattr(context, 'user_tz', None),
-        getattr(getattr(context, 'user_location', None), 'city', None), getattr(getattr(context, 'user_location', None), 'country', None),
-        getattr(getattr(context, 'user_location', None), 'lat', None), getattr(getattr(context, 'user_location', None), 'lon', None),
+        now_iso, user_tz, user_location_city, user_location_country, user_location_lat, user_location_lon,
     )
     
     system_prompt = f"""You are "Miles," a travel-planning assistant embedded in a web app. You must produce clean, skimmable answers and use the runtime context the app sends.
 
 Runtime context (always provided by the app):
-- now_iso: {context.now_iso}
-- user_tz: {context.user_tz}
-- user_locale: {context.user_locale}
+- now_iso: {now_iso}
+- user_tz: {user_tz}
+- user_locale: {user_locale}
 - user_location: {location}
-  - city: {context.user_location.city or 'null'}
-  - region: {context.user_location.region or 'null'}
-  - country: {context.user_location.country or 'null'}
-  - lat: {context.user_location.lat or 'null'}
-  - lon: {context.user_location.lon or 'null'}
+  - city: {user_location_city or 'null'}
+  - region: {user_location_region or 'null'}
+  - country: {user_location_country or 'null'}
+  - lat: {user_location_lat or 'null'}
+  - lon: {user_location_lon or 'null'}
 
 Rules:
 - Treat now_iso as the source of truth for "today," "tomorrow," etc. Use the formatted local time provided.
@@ -307,6 +321,9 @@ Style standard (strict):
 - Dates: ALWAYS use the exact formatted time provided: "{local_time}"
 - Currency and units: respect user_locale.
 - If you need info, ask at most one question at the end.
+- CRITICAL FORMATTING RULE: In ALL itineraries, EVERY single destination name, attraction, landmark, restaurant, museum, district, building, or place name MUST be formatted with **__bold and underlined__** text.
+- Examples: **__Sagrada Familia__**, **__Park Güell__**, **__Gothic Quarter__**, **__Casa Batlló__**, **__La Rambla__**, **__Montjuïc__**, **__Barceloneta Beach__**, **__Picasso Museum__**, **__Born District__**
+- NO EXCEPTIONS: Every place name in the itinerary must use this exact formatting: **__Place Name__**
 
 Current local time: {local_time}
 User location: {location}
@@ -461,12 +478,34 @@ Output:
         data_section += "YOU MUST USE THIS REAL-TIME DATA IN YOUR RESPONSE. DO NOT PROVIDE GENERIC ADVICE.\n"
         data_section += "PRIORITIZE THIS DATA OVER ANY GENERAL KNOWLEDGE.\n\n"
         
-        if 'flights' in amadeus_data:
-            data_section += f"FLIGHTS ({amadeus_data.get('count', 0)} found):\n"
-            for i, flight in enumerate(amadeus_data['flights'][:3], 1):
-                price = flight.get('price', 'N/A')
-                currency = flight.get('currency', 'USD')
-                data_section += f"{i}. Price: {price} {currency}\n"
+        if 'flights' in amadeus_data or 'outboundFlights' in amadeus_data:
+            # Handle round-trip flight data with best combination
+            if 'bestCombination' in amadeus_data:
+                best = amadeus_data['bestCombination']
+                data_section += f"🎯 BEST ROUND-TRIP DEAL (MUST BE HIGHLIGHTED IN YOUR RESPONSE):\n"
+                data_section += f"Outbound: {best['outbound']['airline']} {best['outbound']['flightNumber']} - ${best['outbound']['price']} ({best['outbound']['departure']} - {best['outbound']['arrival']})\n"
+                data_section += f"Return: {best['return']['airline']} {best['return']['flightNumber']} - ${best['return']['price']} ({best['return']['departure']} - {best['return']['arrival']})\n"
+                data_section += f"Total Price: ${best['totalPrice']} ({best['savings']})\n\n"
+                data_section += f"CRITICAL: You MUST use EXACTLY these flights in your response!\n"
+                data_section += f"MANDATORY FORMAT: Start with '# Best Round-Trip Deal\\n\\n**Outbound:** {best['outbound']['airline']} {best['outbound']['flightNumber']} - ${best['outbound']['price']} ({best['outbound']['departure']} - {best['outbound']['arrival']})\\n**Return:** {best['return']['airline']} {best['return']['flightNumber']} - ${best['return']['price']} ({best['return']['departure']} - {best['return']['arrival']})\\n**Total:** ${best['totalPrice']} ({best['savings']})\\n\\n## Other Options\\nThen show other flight options below.'\n"
+                data_section += f"DO NOT calculate your own totals - use the EXACT total of ${best['totalPrice']}!\n\n"
+            
+            # Show individual flight options
+            if 'outboundFlights' in amadeus_data:
+                data_section += f"OUTBOUND FLIGHTS ({len(amadeus_data['outboundFlights'])} options):\n"
+                for i, flight in enumerate(amadeus_data['outboundFlights'][:3], 1):
+                    data_section += f"{i}. {flight['airline']} {flight['flightNumber']} - ${flight['price']} ({flight['departure']} - {flight['arrival']})\n"
+                
+                data_section += f"\nRETURN FLIGHTS ({len(amadeus_data['returnFlights'])} options):\n"
+                for i, flight in enumerate(amadeus_data['returnFlights'][:3], 1):
+                    data_section += f"{i}. {flight['airline']} {flight['flightNumber']} - ${flight['price']} ({flight['departure']} - {flight['arrival']})\n"
+            else:
+                # Fallback for old format
+                data_section += f"FLIGHTS ({amadeus_data.get('count', 0)} found):\n"
+                for i, flight in enumerate(amadeus_data['flights'][:3], 1):
+                    price = flight.get('price', 'N/A')
+                    currency = flight.get('currency', 'USD')
+                    data_section += f"{i}. Price: {price} {currency}\n"
                 
         elif 'hotels' in amadeus_data:
             data_section += f"HOTELS ({amadeus_data.get('count', 0)} found):\n"
@@ -499,6 +538,38 @@ Output:
         system_prompt += "Please try rephrasing your request with specific dates and locations, or try a different search.\n"
     
     return system_prompt
+
+def format_place_names(text):
+    """Format place names in text with bold and underlined formatting"""
+    import re
+    
+    # Common place names and patterns to format
+    place_patterns = [
+        # Barcelona attractions
+        r'\bSagrada Familia\b', r'\bPark Güell\b', r'\bGothic Quarter\b', r'\bCasa Batlló\b',
+        r'\bLa Rambla\b', r'\bMontjuïc\b', r'\bBarceloneta Beach\b', r'\bPicasso Museum\b',
+        r'\bBorn District\b', r'\bCasa Milà\b', r'\bLas Ramblas\b', r'\bBarri Gòtic\b',
+        r'\bEl Born\b', r'\bMontserrat\b', r'\bCamp Nou\b', r'\bParc de la Ciutadella\b',
+        r'\bPlaça de Catalunya\b', r'\bPlaça Reial\b', r'\bPasseig de Gràcia\b',
+        
+        # General patterns for museums, churches, parks, etc.
+        r'\b[A-Z][a-z]+ Museum\b', r'\b[A-Z][a-z]+ Cathedral\b', r'\b[A-Z][a-z]+ Church\b',
+        r'\b[A-Z][a-z]+ Park\b', r'\b[A-Z][a-z]+ Beach\b', r'\b[A-Z][a-z]+ District\b',
+        r'\b[A-Z][a-z]+ Quarter\b', r'\b[A-Z][a-z]+ Square\b', r'\b[A-Z][a-z]+ Palace\b',
+        
+        # Restaurant patterns
+        r'\b[A-Z][a-z]+ Restaurant\b', r'\b[A-Z][a-z]+ Bar\b', r'\b[A-Z][a-z]+ Café\b',
+        r'\b[A-Z][a-z]+ Tapas\b', r'\b[A-Z][a-z]+ Market\b'
+    ]
+    
+    for pattern in place_patterns:
+        # Find all matches and format them
+        matches = re.findall(pattern, text)
+        for match in matches:
+            if not match.startswith('**__') and not match.endswith('__**'):
+                text = text.replace(match, f'**__{match}__**')
+    
+    return text
 
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
@@ -548,12 +619,23 @@ async def chat(req: ChatRequest):
         
         # Always fetch flight data if flight keywords are detected, regardless of intent detection
         if has_flight_keywords:
-            logger.info("Flight keywords detected - extracting route and generating data")
+            logger.info("Flight keywords detected - extracting route and fetching data")
             # Extract route information from the user's message
             route_info = extract_route_from_message(user_message)
             logger.info(f"Extracted route info: {route_info}")
+            
+            # Extract dates from the user's message
+            date_info = extract_dates_from_message(user_message)
+            logger.info(f"Extracted date info: {date_info}")
+            
+            # Combine route and date information
+            route_info.update(date_info)
+            
+            # Temporarily use mock data to test enhanced features
+            logger.info("Using enhanced mock data for testing")
             amadeus_data = generate_mock_flight_data(route_info)
-            logger.info(f"Generated amadeus_data with route: {amadeus_data.get('route', 'NO ROUTE')}")
+            
+            logger.info(f"Final amadeus_data with route: {amadeus_data.get('route', 'NO ROUTE')}")
         # If travel intent detected and has required parameters, fetch data
         elif intent["type"] != "general" and intent["has_required_params"] and intent["confidence"] > 0.5:
             logger.info(f"Detected {intent['type']} intent with confidence {intent['confidence']}")
@@ -655,11 +737,33 @@ async def chat(req: ChatRequest):
             logger.warning(f"Intent detected but no API call made: {intent}")
             amadeus_data = {"error": "Unable to fetch real-time data. Please try rephrasing your request with specific dates and locations."}
         
-        # Simple response without OpenAI for now
-        if has_flight_keywords:
-            reply = "I found some great flight options for you! Check out the dashboard for detailed information, prices, and booking options."
-        else:
-            reply = "Hello! I'm Miles, your travel assistant. How can I help you plan your trip today?"
+        # Generate response using OpenAI
+        try:
+            # Create system prompt with context and data
+            system_prompt = create_system_prompt(req.context, amadeus_data)
+            
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    *req.messages
+                ],
+                temperature=0.7,
+                max_tokens=1000
+            )
+            
+            reply = response.choices[0].message.content
+            logger.info(f"Generated reply: {reply[:100]}...")
+            
+            # Post-process the reply to format place names with bold and underlined text
+            reply = format_place_names(reply)
+            
+        except Exception as e:
+            logger.error(f"OpenAI API error: {e}")
+            if has_flight_keywords:
+                reply = "I found some great flight options for you! Check out the dashboard for detailed information, prices, and booking options."
+            else:
+                reply = "I'm sorry, I'm having trouble processing your request right now. Please try again."
             
         return {
             "reply": reply,
@@ -674,7 +778,7 @@ async def chat(req: ChatRequest):
         logger.error(f"Error in chat endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-def transform_amadeus_data(raw_data, origin, destination, departure_date):
+def transform_amadeus_data(raw_data, route_info, departure_date):
     """Transform Amadeus API data to match frontend dashboard format"""
     from datetime import datetime, timedelta
     import random
@@ -744,8 +848,8 @@ def transform_amadeus_data(raw_data, origin, destination, departure_date):
                 "price": int(price),
                 "isOptimal": i == 0,  # First flight is optimal
                 "stops": stops,
-                "origin": first_segment.get('departure', {}).get('airport', origin),
-                "destination": last_segment.get('arrival', {}).get('airport', destination)
+                "origin": first_segment.get('departure', {}).get('airport', route_info['departureCode']),
+                "destination": last_segment.get('arrival', {}).get('airport', route_info['destinationCode'])
             }
             flights.append(flight)
     
@@ -764,22 +868,18 @@ def transform_amadeus_data(raw_data, origin, destination, departure_date):
             "optimal": optimal_price
         })
     
-    # Get city names from airport codes
-    origin_city = get_city_name_from_code(origin)
-    destination_city = get_city_name_from_code(destination)
-    
     return {
         "flights": flights,
         "priceData": price_data,
         "route": {
-            "departure": origin_city,
-            "destination": destination_city,
-            "departureCode": origin,
-            "destinationCode": destination,
+            "departure": route_info['departure'],
+            "destination": route_info['destination'],
+            "departureCode": route_info['departureCode'],
+            "destinationCode": route_info['destinationCode'],
             "date": base_date.strftime("%b %d, %Y")
         },
         "hasRealData": True,
-        "message": f"Here are real flight options from {origin_city} to {destination_city}! Check out the dashboard for detailed information, prices, and booking options."
+        "message": f"Here are real flight options from {route_info['departure']} to {route_info['destination']}! Check out the dashboard for detailed information, prices, and booking options."
     }
 
 def get_city_name_from_code(code):
@@ -795,13 +895,13 @@ def get_city_name_from_code(code):
     return airport_codes.get(code, code)
 
 def extract_route_from_message(message):
-    """Extract route information from user message"""
+    """Extract route information from user message using dynamic parsing"""
     import re
     
     # Common airport codes and city mappings
     airport_mappings = {
         'miami': 'MIA', 'dfw': 'DFW', 'dallas': 'DFW', 'fort worth': 'DFW',
-        'new york': 'JFK', 'nyc': 'JFK', 'jfk': 'JFK', 'lga': 'LGA',
+        'new york': 'JFK', 'nyc': 'JFK', 'jfk': 'JFK', 'lga': 'LGA', 'newyork': 'JFK',
         'los angeles': 'LAX', 'lax': 'LAX', 'la': 'LAX',
         'chicago': 'ORD', 'ord': 'ORD', 'ohare': 'ORD',
         'atlanta': 'ATL', 'atl': 'ATL',
@@ -811,17 +911,18 @@ def extract_route_from_message(message):
         'boston': 'BOS', 'bos': 'BOS',
         'phoenix': 'PHX', 'phx': 'PHX',
         'las vegas': 'LAS', 'las': 'LAS',
-        'houston': 'IAH', 'iah': 'IAH',
         'orlando': 'MCO', 'mco': 'MCO',
-        'charlotte': 'CLT', 'clt': 'CLT',
+        'washington dc': 'DCA', 'washington': 'DCA', 'dc': 'DCA', 'dca': 'DCA',
+        'ohio': 'CMH', 'columbus': 'CMH', 'cleveland': 'CLE', 'cincinnati': 'CVG', 'cmh': 'CMH', 'cle': 'CLE', 'cvg': 'CVG',
+        'houston': 'IAH', 'iah': 'IAH',
         'detroit': 'DTW', 'dtw': 'DTW',
         'minneapolis': 'MSP', 'msp': 'MSP',
         'philadelphia': 'PHL', 'phl': 'PHL',
-        'washington': 'DCA', 'dca': 'DCA', 'dc': 'DCA',
-        'paris': 'CDG', 'cdg': 'CDG',
-        'london': 'LHR', 'lhr': 'LHR',
+        'baltimore': 'BWI', 'bwi': 'BWI',
         'barcelona': 'BCN', 'bcn': 'BCN',
         'madrid': 'MAD', 'mad': 'MAD',
+        'london': 'LHR', 'lhr': 'LHR',
+        'paris': 'CDG', 'cdg': 'CDG',
         'rome': 'FCO', 'fco': 'FCO',
         'berlin': 'BER', 'ber': 'BER',
         'amsterdam': 'AMS', 'ams': 'AMS',
@@ -831,7 +932,7 @@ def extract_route_from_message(message):
     
     city_mappings = {
         'miami': 'Miami', 'dfw': 'Dallas', 'dallas': 'Dallas', 'fort worth': 'Dallas',
-        'new york': 'New York', 'nyc': 'New York', 'jfk': 'New York', 'lga': 'New York',
+        'new york': 'New York', 'nyc': 'New York', 'jfk': 'New York', 'lga': 'New York', 'newyork': 'New York',
         'los angeles': 'Los Angeles', 'lax': 'Los Angeles', 'la': 'Los Angeles',
         'chicago': 'Chicago', 'ord': 'Chicago', 'ohare': 'Chicago',
         'atlanta': 'Atlanta', 'atl': 'Atlanta',
@@ -841,17 +942,18 @@ def extract_route_from_message(message):
         'boston': 'Boston', 'bos': 'Boston',
         'phoenix': 'Phoenix', 'phx': 'Phoenix',
         'las vegas': 'Las Vegas', 'las': 'Las Vegas',
-        'houston': 'Houston', 'iah': 'Houston',
         'orlando': 'Orlando', 'mco': 'Orlando',
-        'charlotte': 'Charlotte', 'clt': 'Charlotte',
+        'washington dc': 'Washington DC', 'washington': 'Washington DC', 'dc': 'Washington DC', 'dca': 'Washington DC',
+        'ohio': 'Ohio', 'columbus': 'Ohio', 'cleveland': 'Ohio', 'cincinnati': 'Ohio', 'cmh': 'Ohio', 'cle': 'Ohio', 'cvg': 'Ohio',
+        'houston': 'Houston', 'iah': 'Houston',
         'detroit': 'Detroit', 'dtw': 'Detroit',
         'minneapolis': 'Minneapolis', 'msp': 'Minneapolis',
         'philadelphia': 'Philadelphia', 'phl': 'Philadelphia',
-        'washington': 'Washington', 'dca': 'Washington', 'dc': 'Washington',
-        'paris': 'Paris', 'cdg': 'Paris',
-        'london': 'London', 'lhr': 'London',
+        'baltimore': 'Baltimore', 'bwi': 'Baltimore',
         'barcelona': 'Barcelona', 'bcn': 'Barcelona',
         'madrid': 'Madrid', 'mad': 'Madrid',
+        'london': 'London', 'lhr': 'London',
+        'paris': 'Paris', 'cdg': 'Paris',
         'rome': 'Rome', 'fco': 'Rome',
         'berlin': 'Berlin', 'ber': 'Berlin',
         'amsterdam': 'Amsterdam', 'ams': 'Amsterdam',
@@ -860,37 +962,62 @@ def extract_route_from_message(message):
     }
     
     message_lower = message.lower()
-    print(f"DEBUG: Processing message: '{message_lower}'")
+    logger.debug(f"Processing message: '{message_lower}'")
     
-    # Try to extract "from X to Y" pattern
-    from_to_pattern = r'from\s+([a-z\s]+?)\s+to\s+([a-z\s]+?)(?:\s|$)'
-    match = re.search(from_to_pattern, message_lower)
-    print(f"DEBUG: from_to_pattern match: {match}")
+    # Improved regex patterns to handle various formats
+    # Pattern 1: "flights to X to Y" format (highest priority)
+    flights_to_pattern = r'flights?\s+to\s+([a-z\s]+?)\s+to\s+([a-z\s]+?)(?:\s+(?:nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct)[\s\-]*\d+|\s|$)'
+    match = re.search(flights_to_pattern, message_lower)
+    logger.debug(f"flights_to_pattern match: {match}")
     
     if match:
         origin_city = match.group(1).strip()
         destination_city = match.group(2).strip()
-        print(f"DEBUG: from_to matched - origin: '{origin_city}', destination: '{destination_city}'")
+        logger.debug(f"flights_to matched - origin: '{origin_city}', destination: '{destination_city}'")
     else:
-        # Try "X to Y" pattern
-        to_pattern = r'([a-z\s]+?)\s+to\s+([a-z\s]+?)(?:\s|$)'
-        match = re.search(to_pattern, message_lower)
-        print(f"DEBUG: to_pattern match: {match}")
+        # Pattern 2: "from X to Y" (more flexible with dates)
+        from_to_pattern = r'from\s+([a-z\s]+?)\s+to\s+([a-z\s]+?)(?:\s+(?:nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct)[\s\-]*\d+|\s|$)'
+        match = re.search(from_to_pattern, message_lower)
+        logger.debug(f"from_to_pattern match: {match}")
+        
         if match:
             origin_city = match.group(1).strip()
             destination_city = match.group(2).strip()
-            print(f"DEBUG: to matched - origin: '{origin_city}', destination: '{destination_city}'")
+            logger.debug(f"from_to matched - origin: '{origin_city}', destination: '{destination_city}'")
         else:
-            # Default fallback
-            origin_city = 'new york'
-            destination_city = 'los angeles'
-            print(f"DEBUG: Using fallback - origin: '{origin_city}', destination: '{destination_city}'")
+            # Pattern 3: "X to Y" but avoid matching "show me" patterns
+            to_pattern = r'(?:^|^[^a-z]*)([a-z\s]{2,}?)\s+to\s+([a-z\s]+?)(?:\s+(?:nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct)[\s\-]*\d+|\s|$)'
+            match = re.search(to_pattern, message_lower)
+            logger.debug(f"to_pattern match: {match}")
+            if match:
+                origin_city = match.group(1).strip()
+                destination_city = match.group(2).strip()
+                # Skip if origin contains common phrases that shouldn't be cities
+                if not any(phrase in origin_city for phrase in ['show me', 'find me', 'get me', 'need', 'want', 'looking for', 'flights']):
+                    print(f"DEBUG: to matched - origin: '{origin_city}', destination: '{destination_city}'")
+                else:
+                    match = None
+            
+            if not match:
+                # Pattern 4: Handle "to X to Y" format (like "to new york to barcelona")
+                to_to_pattern = r'to\s+([a-z\s]+?)\s+to\s+([a-z\s]+?)(?:\s+(?:nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct)[\s\-]*\d+|\s|$)'
+                match = re.search(to_to_pattern, message_lower)
+                logger.debug(f"to_to_pattern match: {match}")
+                if match:
+                    origin_city = match.group(1).strip()
+                    destination_city = match.group(2).strip()
+                    print(f"DEBUG: to_to matched - origin: '{origin_city}', destination: '{destination_city}'")
+                else:
+                    # Default fallback
+                    origin_city = 'new york'
+                    destination_city = 'los angeles'
+                    print(f"DEBUG: Using fallback - origin: '{origin_city}', destination: '{destination_city}'")
     
-    # Map to airport codes and city names
-    origin_code = airport_mappings.get(origin_city, 'JFK')
-    destination_code = airport_mappings.get(destination_city, 'LAX')
-    origin_name = city_mappings.get(origin_city, 'New York')
-    destination_name = city_mappings.get(destination_city, 'Los Angeles')
+    # Map cities to airport codes and proper names
+    origin_code = airport_mappings.get(origin_city.lower(), 'JFK')
+    destination_code = airport_mappings.get(destination_city.lower(), 'CMH')
+    origin_name = city_mappings.get(origin_city.lower(), ' '.join(word.capitalize() for word in origin_city.split()))
+    destination_name = city_mappings.get(destination_city.lower(), ' '.join(word.capitalize() for word in destination_city.split()))
     
     return {
         'departure': origin_name,
@@ -899,22 +1026,272 @@ def extract_route_from_message(message):
         'destinationCode': destination_code
     }
 
-def generate_mock_flight_data(route_info=None):
-    """Generate mock flight data for demonstration purposes"""
+def extract_departure_date(message):
+    """Extract departure date from user message"""
+    import re
+    from datetime import datetime, timedelta
+    
+    message_lower = message.lower()
+    
+    # Look for date patterns like "10/26 to 10/30" or "Oct 26 to Oct 30"
+    date_patterns = [
+        r'(\d{1,2})/(\d{1,2})\s+to\s+(\d{1,2})/(\d{1,2})',  # 10/26 to 10/30
+        r'(oct|nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep)\s+(\d{1,2})\s+to\s+(oct|nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep)\s+(\d{1,2})',  # Oct 26 to Oct 30
+        r'(\d{1,2})/(\d{1,2})',  # Single date 10/26
+        r'(oct|nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep)\s+(\d{1,2})',  # Single date Oct 26
+    ]
+    
+    for pattern in date_patterns:
+        match = re.search(pattern, message_lower)
+        if match:
+            if '/' in pattern:  # MM/DD format
+                if len(match.groups()) == 2:  # Single date
+                    month, day = int(match.group(1)), int(match.group(2))
+                else:  # Date range, use first date
+                    month, day = int(match.group(1)), int(match.group(2))
+                
+                # Assume current year
+                current_year = datetime.now().year
+                try:
+                    return datetime(current_year, month, day).strftime("%Y-%m-%d")
+                except ValueError:
+                    continue
+            else:  # Month name format
+                month_names = {
+                    'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+                    'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+                }
+                if len(match.groups()) == 2:  # Single date
+                    month = month_names.get(match.group(1), 10)
+                    day = int(match.group(2))
+                else:  # Date range, use first date
+                    month = month_names.get(match.group(1), 10)
+                    day = int(match.group(2))
+                
+                current_year = datetime.now().year
+                try:
+                    return datetime(current_year, month, day).strftime("%Y-%m-%d")
+                except ValueError:
+                    continue
+    
+    # Default to 30 days from now if no date found
+    default_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+    logger.debug(f"No date found in message, using default: {default_date}")
+    return default_date
+
+def extract_dates_from_message(message):
+    """Extract departure and return dates from user message"""
+    import re
+    from datetime import datetime, timedelta
+    
+    message_lower = message.lower()
+    logger.debug(f"Extracting dates from: '{message_lower}'")
+    
+    # Enhanced patterns for various date formats (ordered by specificity)
+    date_patterns = [
+        # Dash format without second month: "dec 10-17" (assume same month) - MOST SPECIFIC FIRST
+        r'(\w+)\s+(\d+)\s*-\s*(\d+)',
+        # Dash format with concatenated month+day: "dec 10-dec17" (same month)
+        r'(\w+)\s+(\d+)\s*-\s*(\w+)(\d+)',
+        # Dash format with spaces: "dec 10-dec 17" (same month)
+        r'(\w+)\s+(\d+)\s*-\s*(\w+)\s+(\d+)',
+        # Dash format with no spaces: "dec10-dec17" (same month) - specific month pattern
+        r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(\d+)\s*-\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(\d+)\b',
+        # Full month names with ordinal numbers: "december 1st to december 5th"
+        r'(\w+)\s+(\d+)(?:st|nd|rd|th)?\s+to\s+(\w+)\s+(\d+)(?:st|nd|rd|th)?',
+        # Full month names: "december 1 to december 5"
+        r'(\w+)\s+(\d+)\s+to\s+(\w+)\s+(\d+)',
+        # Abbreviated months with ordinal: "dec 1st to dec 5th"
+        r'(\w+)\s+(\d+)(?:st|nd|rd|th)?\s+to\s+(\w+)\s+(\d+)(?:st|nd|rd|th)?',
+        # Abbreviated months: "dec 1 to dec 5"
+        r'(\w+)\s+(\d+)\s+to\s+(\w+)\s+(\d+)',
+        # Dash format with ordinals: "december 1st-december 5th"
+        r'(\w+)\s+(\d+)(?:st|nd|rd|th)?\s*-\s*(\w+)\s*(\d+)(?:st|nd|rd|th)?',
+        # Dash format: "dec 1-dec 5" (same month, different days)
+        r'(\w+)\s+(\d+)\s*-\s*(\w+)\s*(\d+)',
+        # Through format: "december 1 through december 5"
+        r'(\w+)\s+(\d+)\s+through\s+(\w+)\s+(\d+)',
+    ]
+    
+    match = None
+    matched_pattern = None
+    for i, pattern in enumerate(date_patterns):
+        test_match = re.search(pattern, message_lower)
+        if test_match:
+            logger.debug(f"Pattern {i} matched: {pattern} -> {test_match.groups()}")
+            if not match:  # Use first match
+                match = test_match
+                matched_pattern = pattern
+    
+    if match:
+        groups = match.groups()
+        logger.debug(f"Using pattern: {matched_pattern}")
+        logger.debug(f"Date pattern matched: {groups}")
+        
+        month_names = {
+            'jan': 1, 'january': 1, 'feb': 2, 'february': 2, 'mar': 3, 'march': 3,
+            'apr': 4, 'april': 4, 'may': 5, 'jun': 6, 'june': 6,
+            'jul': 7, 'july': 7, 'aug': 8, 'august': 8, 'sep': 9, 'september': 9,
+            'oct': 10, 'october': 10, 'nov': 11, 'november': 11, 'dec': 12, 'december': 12
+        }
+        
+        if len(groups) == 4:
+            # Format: "dec 10-dec 17" or "december 1 to december 5" or "dec 10-dec17"
+            month1, day1, month2, day2 = groups
+            # Extract day numbers (remove ordinal suffixes if present)
+            day1 = int(re.sub(r'(st|nd|rd|th)$', '', day1))
+            day2 = int(re.sub(r'(st|nd|rd|th)$', '', day2))
+            
+            # Check if this is one of the special concatenated formats
+            if matched_pattern in [r'(\w+)\s+(\d+)\s*-\s*(\w+)(\d+)', r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(\d+)\s*-\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(\d+)\b']:
+                # For "dec 10-dec17" or "dec10-dec17", we need to handle concatenated month+day
+                logger.debug(f"Concatenated format detected: {month1} {day1}-{month2}{day2}")
+                
+                # Check if month2 starts with month1 (e.g., "dec1" starts with "dec")
+                if month2.lower().startswith(month1.lower()):
+                    # This is the concatenated format like "dec 10-dec17" -> "dec", "10", "dec1", "7"
+                    # We need to extract the correct day from the concatenated part
+                    remaining_part = month2[len(month1):]  # "1" from "dec1"
+                    actual_day2_str = remaining_part + str(day2)  # "1" + "7" = "17"
+                    logger.debug(f"Reconstructed: month1={month1}, day1={day1}, month2={month1}, day2={actual_day2_str}")
+                    
+                    month1_num = month_names.get(month1.lower(), 11)
+                    month2_num = month1_num  # Same month
+                    day2 = int(actual_day2_str)  # Update day2 with the correct value
+                else:
+                    # Regular case where months are different
+                    month1_num = month_names.get(month1.lower(), 11)
+                    month2_num = month_names.get(month2.lower(), 11)
+            elif matched_pattern == r'(\w+)\s+(\d+)\s*-\s*(\w+)\s+(\d+)':
+                # For "dec 10-dec 17" format (with spaces)
+                logger.debug(f"Spaced format detected: {month1} {day1}-{month2} {day2}")
+                
+                # Check if both months are the same
+                if month1.lower() == month2.lower():
+                    month1_num = month_names.get(month1.lower(), 11)
+                    month2_num = month1_num  # Same month
+                    logger.debug(f"Same month detected: {month1}")
+                else:
+                    month1_num = month_names.get(month1.lower(), 11)
+                    month2_num = month_names.get(month2.lower(), 11)
+            else:
+                # Regular 4-group format
+                month1_num = month_names.get(month1.lower(), 11)
+                month2_num = month_names.get(month2.lower(), 11)
+        elif len(groups) == 3:
+            # Format: "dec 10-17" (same month, different days)
+            month1, day1, day2 = groups
+            # Extract day numbers (remove ordinal suffixes if present)
+            day1 = int(re.sub(r'(st|nd|rd|th)$', '', day1))
+            day2 = int(re.sub(r'(st|nd|rd|th)$', '', day2))
+            
+            month1_num = month_names.get(month1.lower(), 11)
+            month2_num = month1_num  # Same month for both dates
+        
+        # Use current year
+        current_year = datetime.now().year
+        departure_date = datetime(current_year, month1_num, day1)
+        return_date = datetime(current_year, month2_num, day2)
+        
+        departure_display = departure_date.strftime("%b %d, %Y")
+        return_display = return_date.strftime("%b %d, %Y")
+        
+        return {
+            'departure_date': departure_date.strftime("%Y-%m-%d"),
+            'return_date': return_date.strftime("%Y-%m-%d"),
+            'departure_display': departure_display,
+            'return_display': return_display
+        }
+    
+    return {}
+
+def calculate_value_score(flight):
+    """Calculate a value score for a flight (lower is better)"""
+    price = flight.get('price', 1000)
+    duration_str = flight.get('duration', '0h 0m')
+    stops = flight.get('stops', 3)
+    
+    # Parse duration (e.g., "7h 30m" -> 7.5 hours)
+    duration_hours = 0
+    if 'h' in duration_str:
+        hours_part = duration_str.split('h')[0]
+        duration_hours = float(hours_part.strip())
+        if 'm' in duration_str:
+            mins_part = duration_str.split('h')[1].split('m')[0]
+            duration_hours += float(mins_part.strip()) / 60
+    
+    # Value score: price + (duration * 20) + (stops * 50)
+    # Lower score = better value
+    value_score = price + (duration_hours * 20) + (stops * 50)
+    return value_score
+
+def generate_flights_for_route(origin, destination, origin_code, dest_code, date, is_return=False):
+    """Generate flights for a specific route and date"""
+    import random
+    
+    airlines = ['Delta Airlines', 'United Airlines', 'American Airlines', 'Southwest Airlines', 'JetBlue Airways', 'Spirit Airlines', 'Alaska Airlines', 'Frontier Airlines', 'Hawaiian Airlines', 'Virgin America']
+    
+    flights = []
+    for i in range(6):
+        airline = random.choice(airlines)
+        price = random.randint(200, 900)
+        duration_hours = random.randint(2, 8)
+        duration_mins = random.randint(0, 59)
+        duration = f"{duration_hours}h {duration_mins}m"
+        stops = random.randint(0, 2)
+        
+        departure_hour = random.randint(6, 22)
+        departure_min = random.choice(['00', '15', '30', '45'])
+        arrival_hour = (departure_hour + duration_hours) % 24
+        arrival_min = departure_min
+        
+        flight = {
+            "id": f"{'return' if is_return else 'outbound'}_{i + 1}",
+            "airline": airline,
+            "flightNumber": f"{airline.split()[0][:2].upper()}{random.randint(1000, 9999)}",
+            "departure": f"{departure_hour:02d}:{departure_min}",
+            "arrival": f"{arrival_hour:02d}:{arrival_min}",
+            "duration": duration,
+            "price": price,
+            "stops": stops,
+            "origin": origin_code,
+            "destination": dest_code,
+            "isOptimal": False  # Will be set later
+        }
+        flights.append(flight)
+    
+    return flights
+
+def generate_mock_flight_data(route_info=None, user_message=""):
+    """Generate enhanced mock flight data with separate outbound/return flights and best combinations"""
     import random
     from datetime import datetime, timedelta
     
-    print(f"DEBUG: generate_mock_flight_data called with route_info: {route_info}")
+    logger.debug(f"generate_mock_flight_data called with route_info: {route_info}")
     
-    # Generate random dates
-    base_date = datetime.now() + timedelta(days=random.randint(1, 30))
-    departure_date = base_date.strftime("%Y-%m-%d")
-    return_date = (base_date + timedelta(days=random.randint(1, 7))).strftime("%Y-%m-%d")
+    # Extract dates from user message
+    date_info = extract_dates_from_message(user_message)
+    
+    # Use provided dates or generate random dates
+    if route_info and 'departure_date' in route_info:
+        departure_date = route_info['departure_date']
+        return_date = route_info['return_date']
+        departure_display = route_info.get('departure_display', departure_date)
+        return_display = route_info.get('return_display', return_date)
+        print(f"DEBUG: Using provided dates - departure: {departure_date}, return: {return_date}")
+    else:
+        # Generate random dates as fallback
+        base_date = datetime.now() + timedelta(days=random.randint(1, 30))
+        departure_date = base_date.strftime("%Y-%m-%d")
+        return_date = (base_date + timedelta(days=random.randint(1, 7))).strftime("%Y-%m-%d")
+        departure_display = base_date.strftime("%b %d, %Y")
+        return_display = (base_date + timedelta(days=random.randint(1, 7))).strftime("%b %d, %Y")
+        print(f"DEBUG: Using random dates - departure: {departure_date}, return: {return_date}")
     
     # Use provided route info or fallback to random route
     if route_info:
         route = route_info
-        print(f"DEBUG: Using provided route: {route}")
+        logger.debug(f"Using provided route: {route}")
     else:
         # Fallback route combinations
         route_combinations = [
@@ -929,48 +1306,52 @@ def generate_mock_flight_data(route_info=None):
         ]
         route = random.choice(route_combinations)
     
-    # Mock flight data with more variety
-    airlines = ['Delta Airlines', 'United Airlines', 'American Airlines', 'Southwest Airlines', 'JetBlue Airways', 'Spirit Airlines', 'Alaska Airlines', 'Frontier Airlines', 'Hawaiian Airlines', 'Virgin America']
+    # Generate outbound flights (X to Y)
+    outbound_flights = generate_flights_for_route(
+        route['departure'], route['destination'], 
+        route['departureCode'], route['destinationCode'], 
+        departure_date, is_return=False
+    )
     
-    flights = []
-    for i in range(6):
-        airline = random.choice(airlines)
-        price = random.randint(200, 900)  # Wider price range
-        duration_hours = random.randint(2, 8)
-        duration_mins = random.randint(0, 59)
-        duration = f"{duration_hours}h {duration_mins}m"
-        stops = random.randint(0, 2)
-        
-        # Generate more realistic times
-        departure_hour = random.randint(6, 22)
-        departure_min = random.choice(['00', '15', '30', '45'])
-        arrival_hour = (departure_hour + duration_hours) % 24
-        arrival_min = departure_min
-        
-        flight = {
-            "id": str(i + 1),
-            "airline": airline,
-            "flightNumber": f"{airline.split()[0][:2].upper()}{random.randint(1000, 9999)}",
-            "departure": f"{departure_hour:02d}:{departure_min}",
-            "arrival": f"{arrival_hour:02d}:{arrival_min}",
-            "duration": duration,
-            "price": price,
-            "isOptimal": i == 0,  # First flight is always optimal
-            "stops": stops,
-            "origin": route["departureCode"],
-            "destination": route["destinationCode"]
-        }
-        flights.append(flight)
+    # Generate return flights (Y to X)
+    return_flights = generate_flights_for_route(
+        route['destination'], route['departure'], 
+        route['destinationCode'], route['departureCode'], 
+        return_date, is_return=True
+    )
     
-    # Generate more varied price data for the next 7 days
+    # Find best value flights from each direction
+    best_outbound = min(outbound_flights, key=calculate_value_score)
+    best_return = min(return_flights, key=calculate_value_score)
+    
+    # Mark the best value flights as optimal
+    for flight in outbound_flights:
+        flight['isOptimal'] = flight == best_outbound
+    for flight in return_flights:
+        flight['isOptimal'] = flight == best_return
+    
+    # Create best combination
+    total_price = best_outbound['price'] + best_return['price']
+    savings_amount = random.randint(50, 150)
+    best_combination = {
+        'outbound': best_outbound,
+        'return': best_return,
+        'totalPrice': total_price,
+        'savings': f"Save up to 15% when booking together"
+    }
+    
+    # Combine all flights for backward compatibility
+    flights = outbound_flights + return_flights
+    
+    # Generate consistent price data for the next 7 days
     price_data = []
     base_price = random.randint(250, 600)  # More varied base price
+    
     for i in range(7):
-        date = (base_date + timedelta(days=i)).strftime("%b %d")
-        # Create more realistic price variations
-        price_variation = random.randint(-80, 120)
-        price = max(200, base_price + price_variation)  # Ensure minimum price
-        optimal = max(180, base_price - random.randint(10, 40))  # Optimal is always lower
+        date = (datetime.now() + timedelta(days=i)).strftime("%b %d")
+        price_variation = random.randint(-50, 100)
+        price = max(200, base_price + price_variation)
+        optimal = max(180, base_price - random.randint(10, 40))
         price_data.append({
             "date": date,
             "price": price,
@@ -978,17 +1359,24 @@ def generate_mock_flight_data(route_info=None):
         })
     
     return {
-        "flights": flights,
+        "outboundFlights": outbound_flights,
+        "returnFlights": return_flights,
+        "bestCombination": best_combination,
+        "flights": flights,  # Keep for backward compatibility
         "priceData": price_data,
         "route": {
             "departure": route["departure"],
             "destination": route["destination"], 
             "departureCode": route["departureCode"],
             "destinationCode": route["destinationCode"],
-            "date": base_date.strftime("%b %d, %Y")
+            "date": departure_display,
+            "departure_date": departure_date,
+            "return_date": return_date,
+            "departure_display": departure_display,
+            "return_display": return_display
         },
         "hasRealData": False,
-        "message": f"Here are some great flight options from {route['departure']} to {route['destination']}! Check out the dashboard for detailed information, prices, and booking options."
+        "message": f"Here are great flight options from {route['departure']} to {route['destination']}! Check out the dashboard for detailed information, prices, and booking options."
     }
 
 def _is_iata_code(code: str) -> bool:

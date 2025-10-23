@@ -94,7 +94,8 @@ function cleanContext(context) {
 }
 
 async function sendToApi(messages, context, sessionId) {
-  const base = process.env.REACT_APP_API_BASE ?? 'https://capstone-79wenhjg2-berkes-projects-f48a9605.vercel.app';
+  // Use production Vercel backend or fallback to localhost for development
+  const base = process.env.REACT_APP_API_BASE;
   console.log('API Base URL:', base);
   console.log('Making request to:', `${base}/api/chat`);
   
@@ -169,6 +170,267 @@ export default function Chat({ onShowDashboard, showDashboard, dashboardData, on
     }
   }, [messages, isTyping]);
 
+  // Function to extract dates from user message
+  const extractDatesFromMessage = (message) => {
+    const lowerMessage = message.toLowerCase();
+    
+    // Look for month names and dates
+    const monthNames = ['january', 'february', 'march', 'april', 'may', 'june', 
+                       'july', 'august', 'september', 'october', 'november', 'december'];
+    const monthAbbrevs = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
+                         'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    
+    let departureDate = null;
+    let returnDate = null;
+    
+    // Look for patterns like "december 1" or "dec 1"
+    const datePatterns = [
+      /(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})/gi,
+      /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2})/gi,
+      /(\d{1,2})\s+(january|february|march|april|may|june|july|august|september|october|november|december)/gi,
+      /(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/gi
+    ];
+    
+    const matches = [];
+    datePatterns.forEach(pattern => {
+      const found = lowerMessage.match(pattern);
+      if (found) {
+        console.log('Date pattern matched:', pattern, 'Found:', found);
+        matches.push(...found);
+      }
+    });
+    
+    console.log('All date matches:', matches);
+    
+    if (matches.length > 0) {
+      // Parse the first date as departure
+      const firstMatch = matches[0];
+      const monthMatch = firstMatch.match(/(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
+      const dayMatch = firstMatch.match(/(\d{1,2})/);
+      
+      if (monthMatch && dayMatch) {
+        const monthName = monthMatch[0].toLowerCase();
+        const day = parseInt(dayMatch[1]);
+        const year = new Date().getFullYear();
+        
+        // Convert month name to number
+        let monthNum;
+        if (monthNames.includes(monthName)) {
+          monthNum = monthNames.indexOf(monthName);
+        } else if (monthAbbrevs.includes(monthName)) {
+          monthNum = monthAbbrevs.indexOf(monthName);
+        }
+        
+        if (monthNum !== undefined) {
+          departureDate = new Date(year, monthNum, day);
+          
+          // If there's a second date, use it as return date
+          if (matches.length > 1) {
+            const secondMatch = matches[1];
+            const secondMonthMatch = secondMatch.match(/(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
+            const secondDayMatch = secondMatch.match(/(\d{1,2})/);
+            
+            if (secondMonthMatch && secondDayMatch) {
+              const secondMonthName = secondMonthMatch[0].toLowerCase();
+              const secondDay = parseInt(secondDayMatch[1]);
+              
+              let secondMonthNum;
+              if (monthNames.includes(secondMonthName)) {
+                secondMonthNum = monthNames.indexOf(secondMonthName);
+              } else if (monthAbbrevs.includes(secondMonthName)) {
+                secondMonthNum = monthAbbrevs.indexOf(secondMonthName);
+              }
+              
+              if (secondMonthNum !== undefined) {
+                returnDate = new Date(year, secondMonthNum, secondDay);
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return { departureDate, returnDate };
+  };
+
+  // Function to extract cities from user message
+  const extractCitiesFromMessage = (message) => {
+    const lowerMessage = message.toLowerCase();
+    
+    // Common city mappings
+    const cityMappings = {
+      'new york': { name: 'New York', code: 'JFK' },
+      'nyc': { name: 'New York', code: 'JFK' },
+      'washington dc': { name: 'Washington DC', code: 'DCA' },
+      'washington': { name: 'Washington DC', code: 'DCA' },
+      'dc': { name: 'Washington DC', code: 'DCA' },
+      'barcelona': { name: 'Barcelona', code: 'BCN' },
+      'paris': { name: 'Paris', code: 'CDG' },
+      'london': { name: 'London', code: 'LHR' },
+      'tokyo': { name: 'Tokyo', code: 'NRT' },
+      'los angeles': { name: 'Los Angeles', code: 'LAX' },
+      'lax': { name: 'Los Angeles', code: 'LAX' },
+      'miami': { name: 'Miami', code: 'MIA' },
+      'chicago': { name: 'Chicago', code: 'ORD' },
+      'rome': { name: 'Rome', code: 'FCO' },
+      'madrid': { name: 'Madrid', code: 'MAD' },
+      'berlin': { name: 'Berlin', code: 'BER' },
+      'amsterdam': { name: 'Amsterdam', code: 'AMS' },
+      'dublin': { name: 'Dublin', code: 'DUB' },
+      'sydney': { name: 'Sydney', code: 'SYD' },
+      'melbourne': { name: 'Melbourne', code: 'MEL' },
+      'toronto': { name: 'Toronto', code: 'YYZ' },
+      'vancouver': { name: 'Vancouver', code: 'YVR' },
+      'mexico city': { name: 'Mexico City', code: 'MEX' },
+      'sao paulo': { name: 'São Paulo', code: 'GRU' },
+      'rio de janeiro': { name: 'Rio de Janeiro', code: 'GIG' },
+      'buenos aires': { name: 'Buenos Aires', code: 'EZE' },
+      'lima': { name: 'Lima', code: 'LIM' },
+      'bogota': { name: 'Bogotá', code: 'BOG' },
+      'santiago': { name: 'Santiago', code: 'SCL' },
+      'montevideo': { name: 'Montevideo', code: 'MVD' },
+      'caracas': { name: 'Caracas', code: 'CCS' },
+      'havana': { name: 'Havana', code: 'HAV' },
+      'kingston': { name: 'Kingston', code: 'KIN' },
+      'nassau': { name: 'Nassau', code: 'NAS' },
+      'san juan': { name: 'San Juan', code: 'SJU' },
+      'prague': { name: 'Prague', code: 'PRG' },
+      'vienna': { name: 'Vienna', code: 'VIE' },
+      'budapest': { name: 'Budapest', code: 'BUD' },
+      'warsaw': { name: 'Warsaw', code: 'WAW' },
+      'moscow': { name: 'Moscow', code: 'SVO' },
+      'istanbul': { name: 'Istanbul', code: 'IST' },
+      'cairo': { name: 'Cairo', code: 'CAI' },
+      'cape town': { name: 'Cape Town', code: 'CPT' },
+      'johannesburg': { name: 'Johannesburg', code: 'JNB' },
+      'casablanca': { name: 'Casablanca', code: 'CMN' },
+      'marrakech': { name: 'Marrakech', code: 'RAK' },
+      'tunis': { name: 'Tunis', code: 'TUN' },
+      'algiers': { name: 'Algiers', code: 'ALG' },
+      'lagos': { name: 'Lagos', code: 'LOS' },
+      'nairobi': { name: 'Nairobi', code: 'NBO' },
+      'addis ababa': { name: 'Addis Ababa', code: 'ADD' },
+      'dakar': { name: 'Dakar', code: 'DKR' },
+      'accra': { name: 'Accra', code: 'ACC' },
+      'abidjan': { name: 'Abidjan', code: 'ABJ' },
+      'douala': { name: 'Douala', code: 'DLA' },
+      'kinshasa': { name: 'Kinshasa', code: 'FIH' },
+      'luanda': { name: 'Luanda', code: 'LAD' },
+      'maputo': { name: 'Maputo', code: 'MPM' },
+      'harare': { name: 'Harare', code: 'HRE' },
+      'windhoek': { name: 'Windhoek', code: 'WDH' },
+      'antananarivo': { name: 'Antananarivo', code: 'TNR' },
+      'port louis': { name: 'Port Louis', code: 'MRU' },
+      'victoria': { name: 'Victoria', code: 'SEZ' },
+      'moroni': { name: 'Moroni', code: 'HAH' },
+      'djibouti': { name: 'Djibouti', code: 'JIB' },
+      'asmera': { name: 'Asmara', code: 'ASM' },
+      'khartoum': { name: 'Khartoum', code: 'KRT' },
+      'juba': { name: 'Juba', code: 'JUB' },
+      'bangui': { name: 'Bangui', code: 'BGF' },
+      'ndjamena': { name: 'N\'Djamena', code: 'NDJ' },
+      'yaounde': { name: 'Yaoundé', code: 'YAO' },
+      'libreville': { name: 'Libreville', code: 'LBV' },
+      'malabo': { name: 'Malabo', code: 'SSG' },
+      'brazzaville': { name: 'Brazzaville', code: 'BZV' },
+      'bujumbura': { name: 'Bujumbura', code: 'BJM' },
+      'kigali': { name: 'Kigali', code: 'KGL' },
+      'kampala': { name: 'Kampala', code: 'EBB' },
+      'dodoma': { name: 'Dodoma', code: 'DOD' },
+      'dar es salaam': { name: 'Dar es Salaam', code: 'DAR' },
+      'lusaka': { name: 'Lusaka', code: 'LUN' },
+      'gaborone': { name: 'Gaborone', code: 'GBE' },
+      'maseru': { name: 'Maseru', code: 'MSU' },
+      'mbabane': { name: 'Mbabane', code: 'SHO' },
+      'pretoria': { name: 'Pretoria', code: 'PRY' },
+      'bloemfontein': { name: 'Bloemfontein', code: 'BFN' },
+      'durban': { name: 'Durban', code: 'DUR' },
+      'port elizabeth': { name: 'Port Elizabeth', code: 'PLZ' },
+      'east london': { name: 'East London', code: 'ELS' },
+      'kimberley': { name: 'Kimberley', code: 'KIM' },
+      'polokwane': { name: 'Polokwane', code: 'PTG' },
+      'nelspruit': { name: 'Nelspruit', code: 'NLP' },
+      'richards bay': { name: 'Richards Bay', code: 'RCB' },
+      'george': { name: 'George', code: 'GRJ' },
+      'upington': { name: 'Upington', code: 'UTN' },
+      'springbok': { name: 'Springbok', code: 'SBU' },
+      'calvinia': { name: 'Calvinia', code: 'CVI' },
+      'sutherland': { name: 'Sutherland', code: 'SUT' },
+      'clanwilliam': { name: 'Clanwilliam', code: 'CLW' },
+      'vredendal': { name: 'Vredendal', code: 'VRD' },
+      'vanrhynsdorp': { name: 'Vanrhynsdorp', code: 'VRS' },
+      'nieuwoudtville': { name: 'Nieuwoudtville', code: 'NWV' },
+      'loeriesfontein': { name: 'Loeriesfontein', code: 'LRS' }
+    };
+    
+    let origin = null;
+    let destination = null;
+    
+    // Look for various route patterns
+    const routePatterns = [
+      // "flights to Washington DC to Barcelona from December 1 to December 5"
+      /flights?\s+to\s+([^to]+?)\s+to\s+([^from]+?)(?:\s+from|\s+to|$)/gi,
+      // "from X to Y"
+      /from\s+([^to]+?)\s+to\s+([^from]+?)(?:\s+from|\s+to|$)/gi,
+      // "X to Y"
+      /([^to]+?)\s+to\s+([^from]+?)(?:\s+from|\s+to|$)/gi
+    ];
+    
+    for (const pattern of routePatterns) {
+      const match = lowerMessage.match(pattern);
+      if (match) {
+        console.log('Pattern matched:', pattern, 'Match:', match[0]);
+        const parts = match[0].split(/\s+to\s+/i);
+        console.log('Split parts:', parts);
+        
+        if (parts.length >= 2) {
+          const originPart = parts[0].replace(/^(from|flights?)\s+/i, '').trim();
+          const destPart = parts[1].trim();
+          
+          console.log('Origin part:', originPart, 'Dest part:', destPart);
+          
+          // Try to find cities in the mappings
+          for (const [key, value] of Object.entries(cityMappings)) {
+            if (originPart.includes(key)) {
+              origin = value;
+              console.log('Found origin:', key, '->', value);
+            }
+            if (destPart.includes(key)) {
+              destination = value;
+              console.log('Found destination:', key, '->', value);
+            }
+          }
+          
+          if (origin && destination) break;
+        }
+      }
+    }
+    
+    // Fallback: if no pattern matched, try to find cities anywhere in the message
+    if (!origin || !destination) {
+      const foundCities = [];
+      for (const [key, value] of Object.entries(cityMappings)) {
+        if (lowerMessage.includes(key)) {
+          foundCities.push(value);
+        }
+      }
+      
+      if (foundCities.length >= 2) {
+        origin = foundCities[0];
+        destination = foundCities[1];
+      }
+    }
+    
+    console.log('City extraction debug:', {
+      message: lowerMessage,
+      origin,
+      destination,
+      foundCities: !origin || !destination ? Object.keys(cityMappings).filter(key => lowerMessage.includes(key)) : []
+    });
+    
+    return { origin, destination };
+  };
+
   // Check if message contains flight/price related keywords
   const shouldShowDashboard = (message) => {
     const flightKeywords = [
@@ -228,20 +490,39 @@ export default function Chat({ onShowDashboard, showDashboard, dashboardData, on
           if (shouldShowDashboard(text) && onShowDashboard) {
             console.log('Triggering dashboard for text:', text);
             console.log('API Response data:', data);
+            console.log('data.data_fetched:', data.data_fetched);
+            console.log('data.amadeus_data:', data.amadeus_data);
             
             // Check if the API response contains flight data
             if (data.data_fetched && data.amadeus_data) {
               console.log('Using real flight data from API');
+              console.log('Passing to dashboard:', data.amadeus_data);
+              console.log('Route data being passed:', data.amadeus_data.route);
               onShowDashboard(data.amadeus_data);
             } else {
               console.log('Using fallback mock data');
+              console.log('data_fetched:', data.data_fetched);
+              console.log('amadeus_data exists:', !!data.amadeus_data);
+              
+              // Extract dates and cities from user message
+              const { departureDate, returnDate } = extractDatesFromMessage(text);
+              const { origin, destination } = extractCitiesFromMessage(text);
+              console.log('Extracted dates:', { departureDate, returnDate });
+              console.log('Extracted cities:', { origin, destination });
+              
               // Fallback to mock data if no real data available
               const basePrice = Math.floor(Math.random() * 200) + 300;
-              const dynamicPriceData = Array.from({ length: 7 }, (_, i) => ({
-                date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                price: basePrice + Math.floor(Math.random() * 100) - 50,
-                optimal: basePrice - 20
-              }));
+              
+              // Use extracted departure date or fallback to current date
+              const startDate = departureDate || new Date();
+              const dynamicPriceData = Array.from({ length: 7 }, (_, i) => {
+                const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
+                return {
+                  date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                  price: basePrice + Math.floor(Math.random() * 100) - 50,
+                  optimal: basePrice - 20
+                };
+              });
 
               const airlines = ['Delta Airlines', 'United Airlines', 'American Airlines', 'Southwest Airlines', 'JetBlue Airways', 'Spirit Airlines'];
               const dynamicFlightsData = airlines.slice(0, 4).map((airline, index) => ({
@@ -256,14 +537,23 @@ export default function Chat({ onShowDashboard, showDashboard, dashboardData, on
                 stops: Math.floor(Math.random() * 2)
               }));
 
+              // Format dates for display
+              const departureDisplay = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+              const returnDisplay = returnDate ? returnDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
+
+              // Use extracted cities or fallback to defaults
+              const routeInfo = {
+                departure: origin?.name || 'New York',
+                destination: destination?.name || 'Barcelona',
+                departureCode: origin?.code || 'JFK',
+                destinationCode: destination?.code || 'BCN',
+                date: departureDisplay,
+                departure_display: departureDisplay,
+                return_display: returnDisplay
+              };
+
               onShowDashboard({
-                route: {
-                  departure: 'New York',
-                  destination: 'Los Angeles',
-                  departureCode: 'JFK',
-                  destinationCode: 'LAX',
-                  date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                },
+                route: routeInfo,
                 flights: dynamicFlightsData,
                 priceData: dynamicPriceData,
                 hasRealData: false

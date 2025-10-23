@@ -90,9 +90,9 @@ class AmadeusClient:
             Dict containing hotel search results
         """
         try:
-            # First, get hotel offers (using the correct API endpoint)
-            hotel_offers = self.amadeus.shopping.hotel_offers_by_hotel.get(
-                hotelIds='RTPAR001',
+            # First, search for hotels in the specified city
+            hotel_list = self.amadeus.shopping.hotel_offers.get(
+                cityCode=city_code,
                 checkInDate=check_in_date,
                 checkOutDate=check_out_date,
                 adults=adults,
@@ -101,8 +101,8 @@ class AmadeusClient:
             
             return {
                 'success': True,
-                'data': hotel_offers.data,
-                'meta': hotel_offers.meta
+                'data': hotel_list.data,
+                'meta': hotel_list.meta
             }
             
         except ResponseError as error:
