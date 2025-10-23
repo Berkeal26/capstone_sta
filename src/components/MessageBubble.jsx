@@ -261,6 +261,9 @@ function renderTextWithMapLinks(text) {
 
   let result = text;
   
+  // Handle bold text (**text**)
+  result = result.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: bold;">$1</strong>');
+  
   locationPatterns.forEach(pattern => {
     result = result.replace(pattern, (match, location) => {
       const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;

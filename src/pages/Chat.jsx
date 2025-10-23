@@ -94,7 +94,8 @@ function cleanContext(context) {
 }
 
 async function sendToApi(messages, context, sessionId) {
-  const base = process.env.REACT_APP_API_BASE ?? 'https://capstone-79wenhjg2-berkes-projects-f48a9605.vercel.app';
+  // Force localhost for development
+  const base = 'http://localhost:8000';
   console.log('API Base URL:', base);
   console.log('Making request to:', `${base}/api/chat`);
   
@@ -228,13 +229,19 @@ export default function Chat({ onShowDashboard, showDashboard, dashboardData, on
           if (shouldShowDashboard(text) && onShowDashboard) {
             console.log('Triggering dashboard for text:', text);
             console.log('API Response data:', data);
+            console.log('data.data_fetched:', data.data_fetched);
+            console.log('data.amadeus_data:', data.amadeus_data);
             
             // Check if the API response contains flight data
             if (data.data_fetched && data.amadeus_data) {
               console.log('Using real flight data from API');
+              console.log('Passing to dashboard:', data.amadeus_data);
+              console.log('Route data being passed:', data.amadeus_data.route);
               onShowDashboard(data.amadeus_data);
             } else {
               console.log('Using fallback mock data');
+              console.log('data_fetched:', data.data_fetched);
+              console.log('amadeus_data exists:', !!data.amadeus_data);
               // Fallback to mock data if no real data available
               const basePrice = Math.floor(Math.random() * 200) + 300;
               const dynamicPriceData = Array.from({ length: 7 }, (_, i) => ({

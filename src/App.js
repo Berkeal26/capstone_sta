@@ -13,6 +13,8 @@ function App() {
 
   // Function to show dashboard when user asks about prices/flights
   const handleShowDashboard = (data) => {
+    console.log('App.js handleShowDashboard called with data:', data);
+    console.log('App.js route data:', data?.route);
     setDashboardData(data);
     setShowDashboard(true);
   };

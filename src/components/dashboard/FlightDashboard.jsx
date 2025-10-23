@@ -87,6 +87,9 @@ const flightsData = [
 export function FlightDashboard({ searchData = null }) {
   // Debug logging
   console.log('FlightDashboard received searchData:', searchData);
+  console.log('FlightDashboard route from searchData:', searchData?.route);
+  console.log('FlightDashboard hasRealData:', searchData?.hasRealData);
+  console.log('FlightDashboard flights count:', searchData?.flights?.length);
   
   // Use real data if provided, otherwise use mock data
   const hasRealData = searchData?.hasRealData || false;
@@ -130,8 +133,37 @@ export function FlightDashboard({ searchData = null }) {
         {/* Price Chart */}
         <PriceChart key={`price-chart-${displayPriceData[0]?.date}-${displayPriceData[0]?.price}`} data={displayPriceData} />
 
-        {/* Flights Table */}
-        <FlightsTable key={`flights-table-${displayFlightsData[0]?.id}-${displayFlightsData[0]?.price}`} flights={displayFlightsData} />
+               {/* Outbound Flights Table */}
+               {searchData?.outboundFlights && searchData.outboundFlights.length > 0 && (
+                 <div className="mb-6">
+                   <h3 className="text-lg font-semibold mb-3 text-gray-800">
+                     Outbound Flights - {routeInfo.departure} to {routeInfo.destination} ({routeInfo.departure_display || routeInfo.date})
+                   </h3>
+                   <FlightsTable 
+                     key={`outbound-flights-${searchData.outboundFlights[0]?.id}-${searchData.outboundFlights[0]?.price}`} 
+                     flights={searchData.outboundFlights} 
+                   />
+                 </div>
+               )}
+
+               {/* Return Flights Table */}
+               {searchData?.returnFlights && searchData.returnFlights.length > 0 && (
+                 <div className="mb-6">
+                   <h3 className="text-lg font-semibold mb-3 text-gray-800">
+                     Return Flights - {routeInfo.destination} to {routeInfo.departure} ({routeInfo.return_display})
+                   </h3>
+                   <FlightsTable 
+                     key={`return-flights-${searchData.returnFlights[0]?.id}-${searchData.returnFlights[0]?.price}`} 
+                     flights={searchData.returnFlights} 
+                   />
+                 </div>
+               )}
+
+        {/* Fallback: Single Flights Table (for backward compatibility) */}
+        {(!searchData?.outboundFlights || searchData.outboundFlights.length === 0) && 
+         (!searchData?.returnFlights || searchData.returnFlights.length === 0) && (
+          <FlightsTable key={`flights-table-${displayFlightsData[0]?.id}-${displayFlightsData[0]?.price}`} flights={displayFlightsData} />
+        )}
       </div>
     </ScrollArea>
   );
