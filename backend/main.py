@@ -608,24 +608,9 @@ async def chat(req: ChatRequest):
                 departure_date = extract_departure_date(user_message)
                 logger.info(f"Extracted departure date: {departure_date}")
                 
-                # Call Amadeus API for real flight data
-                if amadeus_service:
-                    logger.info(f"Calling Amadeus API for {route_info['departureCode']} to {route_info['destinationCode']} on {departure_date}")
-                    real_data = await amadeus_service.search_flights(
-                        origin=route_info['departureCode'],
-                        destination=route_info['destinationCode'],
-                        departure_date=departure_date
-                    )
-                    
-                    if real_data and not real_data.get('error') and real_data.get('flights'):
-                        logger.info(f"Got real Amadeus data: {len(real_data['flights'])} flights")
-                        amadeus_data = transform_amadeus_data(real_data, route_info, departure_date)
-                    else:
-                        logger.warning("Amadeus API returned no data, using mock data")
-                        amadeus_data = generate_mock_flight_data(route_info, user_message)
-                else:
-                    logger.warning("Amadeus service not available, using mock data")
-                    amadeus_data = generate_mock_flight_data(route_info, user_message)
+                # Temporarily use mock data to test enhanced features
+                logger.info("Using enhanced mock data for testing")
+                amadeus_data = generate_mock_flight_data(route_info, user_message)
                     
             except Exception as e:
                 logger.error(f"Amadeus API call failed: {e}")
