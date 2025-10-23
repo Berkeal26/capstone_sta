@@ -321,6 +321,9 @@ Style standard (strict):
 - Dates: ALWAYS use the exact formatted time provided: "{local_time}"
 - Currency and units: respect user_locale.
 - If you need info, ask at most one question at the end.
+- CRITICAL FORMATTING RULE: In ALL itineraries, EVERY single destination name, attraction, landmark, restaurant, museum, district, building, or place name MUST be formatted with **__bold and underlined__** text.
+- Examples: **__Sagrada Familia__**, **__Park Güell__**, **__Gothic Quarter__**, **__Casa Batlló__**, **__La Rambla__**, **__Montjuïc__**, **__Barceloneta Beach__**, **__Picasso Museum__**, **__Born District__**
+- NO EXCEPTIONS: Every place name in the itinerary must use this exact formatting: **__Place Name__**
 
 Current local time: {local_time}
 User location: {location}
@@ -514,6 +517,38 @@ Output:
     
     return system_prompt
 
+def format_place_names(text):
+    """Format place names in text with bold and underlined formatting"""
+    import re
+    
+    # Common place names and patterns to format
+    place_patterns = [
+        # Barcelona attractions
+        r'\bSagrada Familia\b', r'\bPark Güell\b', r'\bGothic Quarter\b', r'\bCasa Batlló\b',
+        r'\bLa Rambla\b', r'\bMontjuïc\b', r'\bBarceloneta Beach\b', r'\bPicasso Museum\b',
+        r'\bBorn District\b', r'\bCasa Milà\b', r'\bLas Ramblas\b', r'\bBarri Gòtic\b',
+        r'\bEl Born\b', r'\bMontserrat\b', r'\bCamp Nou\b', r'\bParc de la Ciutadella\b',
+        r'\bPlaça de Catalunya\b', r'\bPlaça Reial\b', r'\bPasseig de Gràcia\b',
+        
+        # General patterns for museums, churches, parks, etc.
+        r'\b[A-Z][a-z]+ Museum\b', r'\b[A-Z][a-z]+ Cathedral\b', r'\b[A-Z][a-z]+ Church\b',
+        r'\b[A-Z][a-z]+ Park\b', r'\b[A-Z][a-z]+ Beach\b', r'\b[A-Z][a-z]+ District\b',
+        r'\b[A-Z][a-z]+ Quarter\b', r'\b[A-Z][a-z]+ Square\b', r'\b[A-Z][a-z]+ Palace\b',
+        
+        # Restaurant patterns
+        r'\b[A-Z][a-z]+ Restaurant\b', r'\b[A-Z][a-z]+ Bar\b', r'\b[A-Z][a-z]+ Café\b',
+        r'\b[A-Z][a-z]+ Tapas\b', r'\b[A-Z][a-z]+ Market\b'
+    ]
+    
+    for pattern in place_patterns:
+        # Find all matches and format them
+        matches = re.findall(pattern, text)
+        for match in matches:
+            if not match.startswith('**__') and not match.endswith('__**'):
+                text = text.replace(match, f'**__{match}__**')
+    
+    return text
+
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     try:
@@ -699,11 +734,30 @@ async def chat(req: ChatRequest):
             logger.warning(f"Intent detected but no API call made: {intent}")
             amadeus_data = {"error": "Unable to fetch real-time data. Please try rephrasing your request with specific dates and locations."}
         
-        # Simple response without OpenAI for now
-        if has_flight_keywords:
-            reply = "I found some great flight options for you! Check out the dashboard for detailed information, prices, and booking options."
-        else:
-            reply = "Hello! I'm Miles, your travel assistant. How can I help you plan your trip today?"
+        # Generate response using OpenAI
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    *req.messages
+                ],
+                temperature=0.7,
+                max_tokens=1000
+            )
+            
+            reply = response.choices[0].message.content
+            logger.info(f"Generated reply: {reply[:100]}...")
+            
+            # Post-process the reply to format place names with bold and underlined text
+            reply = format_place_names(reply)
+            
+        except Exception as e:
+            logger.error(f"OpenAI API error: {e}")
+            if has_flight_keywords:
+                reply = "I found some great flight options for you! Check out the dashboard for detailed information, prices, and booking options."
+            else:
+                reply = "I'm sorry, I'm having trouble processing your request right now. Please try again."
             
         return {
             "reply": reply,
