@@ -879,13 +879,74 @@ def get_city_name_from_code(code):
 def extract_route_from_message(message):
     """Extract route information from user message using dynamic parsing"""
     import re
-    from services.iata_codes import get_iata_code
+    
+    # Common airport codes and city mappings
+    airport_mappings = {
+        'miami': 'MIA', 'dfw': 'DFW', 'dallas': 'DFW', 'fort worth': 'DFW',
+        'new york': 'JFK', 'nyc': 'JFK', 'jfk': 'JFK', 'lga': 'LGA', 'newyork': 'JFK',
+        'los angeles': 'LAX', 'lax': 'LAX', 'la': 'LAX',
+        'chicago': 'ORD', 'ord': 'ORD', 'ohare': 'ORD',
+        'atlanta': 'ATL', 'atl': 'ATL',
+        'denver': 'DEN', 'den': 'DEN',
+        'san francisco': 'SFO', 'sfo': 'SFO', 'sf': 'SFO',
+        'seattle': 'SEA', 'sea': 'SEA',
+        'boston': 'BOS', 'bos': 'BOS',
+        'phoenix': 'PHX', 'phx': 'PHX',
+        'las vegas': 'LAS', 'las': 'LAS',
+        'orlando': 'MCO', 'mco': 'MCO',
+        'washington dc': 'DCA', 'dc': 'DCA', 'dca': 'DCA',
+        'houston': 'IAH', 'iah': 'IAH',
+        'detroit': 'DTW', 'dtw': 'DTW',
+        'minneapolis': 'MSP', 'msp': 'MSP',
+        'philadelphia': 'PHL', 'phl': 'PHL',
+        'baltimore': 'BWI', 'bwi': 'BWI',
+        'barcelona': 'BCN', 'bcn': 'BCN',
+        'madrid': 'MAD', 'mad': 'MAD',
+        'london': 'LHR', 'lhr': 'LHR',
+        'paris': 'CDG', 'cdg': 'CDG',
+        'rome': 'FCO', 'fco': 'FCO',
+        'berlin': 'BER', 'ber': 'BER',
+        'amsterdam': 'AMS', 'ams': 'AMS',
+        'tokyo': 'NRT', 'nrt': 'NRT',
+        'mexico city': 'MEX', 'mex': 'MEX'
+    }
+    
+    city_mappings = {
+        'miami': 'Miami', 'dfw': 'Dallas', 'dallas': 'Dallas', 'fort worth': 'Dallas',
+        'new york': 'New York', 'nyc': 'New York', 'jfk': 'New York', 'lga': 'New York', 'newyork': 'New York',
+        'los angeles': 'Los Angeles', 'lax': 'Los Angeles', 'la': 'Los Angeles',
+        'chicago': 'Chicago', 'ord': 'Chicago', 'ohare': 'Chicago',
+        'atlanta': 'Atlanta', 'atl': 'Atlanta',
+        'denver': 'Denver', 'den': 'Denver',
+        'san francisco': 'San Francisco', 'sfo': 'San Francisco', 'sf': 'San Francisco',
+        'seattle': 'Seattle', 'sea': 'Seattle',
+        'boston': 'Boston', 'bos': 'Boston',
+        'phoenix': 'Phoenix', 'phx': 'Phoenix',
+        'las vegas': 'Las Vegas', 'las': 'Las Vegas',
+        'orlando': 'Orlando', 'mco': 'Orlando',
+        'washington dc': 'Washington', 'dc': 'Washington', 'dca': 'Washington',
+        'houston': 'Houston', 'iah': 'Houston',
+        'detroit': 'Detroit', 'dtw': 'Detroit',
+        'minneapolis': 'Minneapolis', 'msp': 'Minneapolis',
+        'philadelphia': 'Philadelphia', 'phl': 'Philadelphia',
+        'baltimore': 'Baltimore', 'bwi': 'Baltimore',
+        'barcelona': 'Barcelona', 'bcn': 'Barcelona',
+        'madrid': 'Madrid', 'mad': 'Madrid',
+        'london': 'London', 'lhr': 'London',
+        'paris': 'Paris', 'cdg': 'Paris',
+        'rome': 'Rome', 'fco': 'Rome',
+        'berlin': 'Berlin', 'ber': 'Berlin',
+        'amsterdam': 'Amsterdam', 'ams': 'Amsterdam',
+        'tokyo': 'Tokyo', 'nrt': 'Tokyo',
+        'mexico city': 'Mexico City', 'mex': 'Mexico City'
+    }
     
     message_lower = message.lower()
     logger.debug(f"Processing message: '{message_lower}'")
     
-    # Try to extract "from X to Y" pattern
-    from_to_pattern = r'from\s+([a-z\s]+?)\s+to\s+([a-z\s]+?)(?:\s|from|$)'
+    # Improved regex patterns to handle various formats
+    # Pattern 1: "from X to Y" (more flexible with dates)
+    from_to_pattern = r'from\s+([a-z\s]+?)\s+to\s+([a-z\s]+?)(?:\s+(?:nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct)[\s\-]*\d+|\s|$)'
     match = re.search(from_to_pattern, message_lower)
     logger.debug(f"from_to_pattern match: {match}")
     
@@ -894,27 +955,39 @@ def extract_route_from_message(message):
         destination_city = match.group(2).strip()
         logger.debug(f"from_to matched - origin: '{origin_city}', destination: '{destination_city}'")
     else:
-        # Try "X to Y" pattern
-        to_pattern = r'([a-z\s]+?)\s+to\s+([a-z\s]+?)(?:\s|from|$)'
+        # Pattern 2: "X to Y" but avoid matching "show me" patterns
+        to_pattern = r'(?:^|^[^a-z]*)([a-z\s]{2,}?)\s+to\s+([a-z\s]+?)(?:\s+(?:nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct)[\s\-]*\d+|\s|$)'
         match = re.search(to_pattern, message_lower)
         logger.debug(f"to_pattern match: {match}")
         if match:
             origin_city = match.group(1).strip()
             destination_city = match.group(2).strip()
-            logger.debug(f"to matched - origin: '{origin_city}', destination: '{destination_city}'")
-        else:
-            # Default fallback
-            origin_city = 'new york'
-            destination_city = 'los angeles'
-            logger.debug(f"Using fallback - origin: '{origin_city}', destination: '{destination_city}'")
+            # Skip if origin contains common phrases that shouldn't be cities
+            if not any(phrase in origin_city for phrase in ['show me', 'find me', 'get me', 'need', 'want', 'looking for']):
+                print(f"DEBUG: to matched - origin: '{origin_city}', destination: '{destination_city}'")
+            else:
+                match = None
+        
+        if not match:
+            # Pattern 3: Handle "to X to Y" format (like "to new york to barcelona")
+            to_to_pattern = r'to\s+([a-z\s]+?)\s+to\s+([a-z\s]+?)(?:\s+(?:nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct)[\s\-]*\d+|\s|$)'
+            match = re.search(to_to_pattern, message_lower)
+            logger.debug(f"to_to_pattern match: {match}")
+            if match:
+                origin_city = match.group(1).strip()
+                destination_city = match.group(2).strip()
+                print(f"DEBUG: to_to matched - origin: '{origin_city}', destination: '{destination_city}'")
+            else:
+                # Default fallback
+                origin_city = 'new york'
+                destination_city = 'los angeles'
+                print(f"DEBUG: Using fallback - origin: '{origin_city}', destination: '{destination_city}'")
     
-    # Use IATA code lookup service for dynamic mapping
-    origin_code = get_iata_code(origin_city) or 'JFK'
-    destination_code = get_iata_code(destination_city) or 'LAX'
-    
-    # Get proper city names (capitalize first letter of each word)
-    origin_name = ' '.join(word.capitalize() for word in origin_city.split())
-    destination_name = ' '.join(word.capitalize() for word in destination_city.split())
+    # Map cities to airport codes and proper names
+    origin_code = airport_mappings.get(origin_city.lower(), 'JFK')
+    destination_code = airport_mappings.get(destination_city.lower(), 'LAX')
+    origin_name = city_mappings.get(origin_city.lower(), ' '.join(word.capitalize() for word in origin_city.split()))
+    destination_name = city_mappings.get(destination_city.lower(), ' '.join(word.capitalize() for word in destination_city.split()))
     
     return {
         'departure': origin_name,
