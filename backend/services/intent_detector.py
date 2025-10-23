@@ -83,8 +83,17 @@ Required parameters by type:
 - flight_inspiration: origin
 - location_search: keyword
 
+SPECIAL PARSING RULES:
+- For "flights to X to Y" format: X is the origin, Y is the destination
+- For "from X to Y" format: X is the origin, Y is the destination
+- For "X to Y" format: X is the origin, Y is the destination
+- Examples:
+  * "flights to Washington DC to Barcelona" → origin: "Washington DC", destination: "Barcelona"
+  * "from New York to Paris" → origin: "New York", destination: "Paris"
+  * "Tokyo to London" → origin: "Tokyo", destination: "London"
+
 Extract dates in YYYY-MM-DD format. Convert relative dates like "tomorrow", "next week" to actual dates.
-For cities/airports, try to identify IATA codes or major city names.
+For cities/airports, use full city names (e.g., "Washington DC", "Barcelona", "New York").
 For prices, extract numbers only (remove currency symbols).
 For coordinates, only include if explicitly mentioned.
 

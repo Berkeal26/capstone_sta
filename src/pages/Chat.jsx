@@ -195,9 +195,12 @@ export default function Chat({ onShowDashboard, showDashboard, dashboardData, on
     datePatterns.forEach(pattern => {
       const found = lowerMessage.match(pattern);
       if (found) {
+        console.log('Date pattern matched:', pattern, 'Found:', found);
         matches.push(...found);
       }
     });
+    
+    console.log('All date matches:', matches);
     
     if (matches.length > 0) {
       // Parse the first date as departure
@@ -363,28 +366,38 @@ export default function Chat({ onShowDashboard, showDashboard, dashboardData, on
     let origin = null;
     let destination = null;
     
-    // Look for "from X to Y" or "X to Y" patterns
+    // Look for various route patterns
     const routePatterns = [
+      // "flights to Washington DC to Barcelona from December 1 to December 5"
+      /flights?\s+to\s+([^to]+?)\s+to\s+([^from]+?)(?:\s+from|\s+to|$)/gi,
+      // "from X to Y"
       /from\s+([^to]+?)\s+to\s+([^from]+?)(?:\s+from|\s+to|$)/gi,
-      /([^to]+?)\s+to\s+([^from]+?)(?:\s+from|\s+to|$)/gi,
-      /flights?\s+to\s+([^to]+?)\s+to\s+([^from]+?)(?:\s+from|\s+to|$)/gi
+      // "X to Y"
+      /([^to]+?)\s+to\s+([^from]+?)(?:\s+from|\s+to|$)/gi
     ];
     
     for (const pattern of routePatterns) {
       const match = lowerMessage.match(pattern);
       if (match) {
+        console.log('Pattern matched:', pattern, 'Match:', match[0]);
         const parts = match[0].split(/\s+to\s+/i);
+        console.log('Split parts:', parts);
+        
         if (parts.length >= 2) {
           const originPart = parts[0].replace(/^(from|flights?)\s+/i, '').trim();
           const destPart = parts[1].trim();
+          
+          console.log('Origin part:', originPart, 'Dest part:', destPart);
           
           // Try to find cities in the mappings
           for (const [key, value] of Object.entries(cityMappings)) {
             if (originPart.includes(key)) {
               origin = value;
+              console.log('Found origin:', key, '->', value);
             }
             if (destPart.includes(key)) {
               destination = value;
+              console.log('Found destination:', key, '->', value);
             }
           }
           

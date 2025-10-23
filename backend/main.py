@@ -912,7 +912,7 @@ def extract_route_from_message(message):
         'phoenix': 'PHX', 'phx': 'PHX',
         'las vegas': 'LAS', 'las': 'LAS',
         'orlando': 'MCO', 'mco': 'MCO',
-        'washington dc': 'DCA', 'dc': 'DCA', 'dca': 'DCA',
+        'washington dc': 'DCA', 'washington': 'DCA', 'dc': 'DCA', 'dca': 'DCA',
         'houston': 'IAH', 'iah': 'IAH',
         'detroit': 'DTW', 'dtw': 'DTW',
         'minneapolis': 'MSP', 'msp': 'MSP',
@@ -942,7 +942,7 @@ def extract_route_from_message(message):
         'phoenix': 'Phoenix', 'phx': 'Phoenix',
         'las vegas': 'Las Vegas', 'las': 'Las Vegas',
         'orlando': 'Orlando', 'mco': 'Orlando',
-        'washington dc': 'Washington', 'dc': 'Washington', 'dca': 'Washington',
+        'washington dc': 'Washington DC', 'washington': 'Washington DC', 'dc': 'Washington DC', 'dca': 'Washington DC',
         'houston': 'Houston', 'iah': 'Houston',
         'detroit': 'Detroit', 'dtw': 'Detroit',
         'minneapolis': 'Minneapolis', 'msp': 'Minneapolis',
@@ -963,43 +963,53 @@ def extract_route_from_message(message):
     logger.debug(f"Processing message: '{message_lower}'")
     
     # Improved regex patterns to handle various formats
-    # Pattern 1: "from X to Y" (more flexible with dates)
-    from_to_pattern = r'from\s+([a-z\s]+?)\s+to\s+([a-z\s]+?)(?:\s+(?:nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct)[\s\-]*\d+|\s|$)'
-    match = re.search(from_to_pattern, message_lower)
-    logger.debug(f"from_to_pattern match: {match}")
+    # Pattern 1: "flights to X to Y" format (highest priority)
+    flights_to_pattern = r'flights?\s+to\s+([a-z\s]+?)\s+to\s+([a-z\s]+?)(?:\s+(?:nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct)[\s\-]*\d+|\s|$)'
+    match = re.search(flights_to_pattern, message_lower)
+    logger.debug(f"flights_to_pattern match: {match}")
     
     if match:
         origin_city = match.group(1).strip()
         destination_city = match.group(2).strip()
-        logger.debug(f"from_to matched - origin: '{origin_city}', destination: '{destination_city}'")
+        logger.debug(f"flights_to matched - origin: '{origin_city}', destination: '{destination_city}'")
     else:
-        # Pattern 2: "X to Y" but avoid matching "show me" patterns
-        to_pattern = r'(?:^|^[^a-z]*)([a-z\s]{2,}?)\s+to\s+([a-z\s]+?)(?:\s+(?:nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct)[\s\-]*\d+|\s|$)'
-        match = re.search(to_pattern, message_lower)
-        logger.debug(f"to_pattern match: {match}")
+        # Pattern 2: "from X to Y" (more flexible with dates)
+        from_to_pattern = r'from\s+([a-z\s]+?)\s+to\s+([a-z\s]+?)(?:\s+(?:nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct)[\s\-]*\d+|\s|$)'
+        match = re.search(from_to_pattern, message_lower)
+        logger.debug(f"from_to_pattern match: {match}")
+        
         if match:
             origin_city = match.group(1).strip()
             destination_city = match.group(2).strip()
-            # Skip if origin contains common phrases that shouldn't be cities
-            if not any(phrase in origin_city for phrase in ['show me', 'find me', 'get me', 'need', 'want', 'looking for']):
-                print(f"DEBUG: to matched - origin: '{origin_city}', destination: '{destination_city}'")
-            else:
-                match = None
-        
-        if not match:
-            # Pattern 3: Handle "to X to Y" format (like "to new york to barcelona")
-            to_to_pattern = r'to\s+([a-z\s]+?)\s+to\s+([a-z\s]+?)(?:\s+(?:nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct)[\s\-]*\d+|\s|$)'
-            match = re.search(to_to_pattern, message_lower)
-            logger.debug(f"to_to_pattern match: {match}")
+            logger.debug(f"from_to matched - origin: '{origin_city}', destination: '{destination_city}'")
+        else:
+            # Pattern 3: "X to Y" but avoid matching "show me" patterns
+            to_pattern = r'(?:^|^[^a-z]*)([a-z\s]{2,}?)\s+to\s+([a-z\s]+?)(?:\s+(?:nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct)[\s\-]*\d+|\s|$)'
+            match = re.search(to_pattern, message_lower)
+            logger.debug(f"to_pattern match: {match}")
             if match:
                 origin_city = match.group(1).strip()
                 destination_city = match.group(2).strip()
-                print(f"DEBUG: to_to matched - origin: '{origin_city}', destination: '{destination_city}'")
-            else:
-                # Default fallback
-                origin_city = 'new york'
-                destination_city = 'los angeles'
-                print(f"DEBUG: Using fallback - origin: '{origin_city}', destination: '{destination_city}'")
+                # Skip if origin contains common phrases that shouldn't be cities
+                if not any(phrase in origin_city for phrase in ['show me', 'find me', 'get me', 'need', 'want', 'looking for', 'flights']):
+                    print(f"DEBUG: to matched - origin: '{origin_city}', destination: '{destination_city}'")
+                else:
+                    match = None
+            
+            if not match:
+                # Pattern 4: Handle "to X to Y" format (like "to new york to barcelona")
+                to_to_pattern = r'to\s+([a-z\s]+?)\s+to\s+([a-z\s]+?)(?:\s+(?:nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct)[\s\-]*\d+|\s|$)'
+                match = re.search(to_to_pattern, message_lower)
+                logger.debug(f"to_to_pattern match: {match}")
+                if match:
+                    origin_city = match.group(1).strip()
+                    destination_city = match.group(2).strip()
+                    print(f"DEBUG: to_to matched - origin: '{origin_city}', destination: '{destination_city}'")
+                else:
+                    # Default fallback
+                    origin_city = 'new york'
+                    destination_city = 'los angeles'
+                    print(f"DEBUG: Using fallback - origin: '{origin_city}', destination: '{destination_city}'")
     
     # Map cities to airport codes and proper names
     origin_code = airport_mappings.get(origin_city.lower(), 'JFK')
