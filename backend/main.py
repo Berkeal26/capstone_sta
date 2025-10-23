@@ -1085,9 +1085,30 @@ def extract_dates_from_message(message):
     message_lower = message.lower()
     logger.debug(f"Extracting dates from: '{message_lower}'")
     
-    # Pattern for "november 1 to november 3" or "nov 1-nov3"
-    date_pattern = r'(\w+)\s+(\d+)\s*-\s*(\w+)\s*(\d+)'
-    match = re.search(date_pattern, message_lower)
+    # Enhanced patterns for various date formats
+    date_patterns = [
+        # Full month names with ordinal numbers: "december 1st to december 5th"
+        r'(\w+)\s+(\d+)(?:st|nd|rd|th)?\s+to\s+(\w+)\s+(\d+)(?:st|nd|rd|th)?',
+        # Full month names: "december 1 to december 5"
+        r'(\w+)\s+(\d+)\s+to\s+(\w+)\s+(\d+)',
+        # Abbreviated months with ordinal: "dec 1st to dec 5th"
+        r'(\w+)\s+(\d+)(?:st|nd|rd|th)?\s+to\s+(\w+)\s+(\d+)(?:st|nd|rd|th)?',
+        # Abbreviated months: "dec 1 to dec 5"
+        r'(\w+)\s+(\d+)\s+to\s+(\w+)\s+(\d+)',
+        # Dash format with ordinals: "december 1st-december 5th"
+        r'(\w+)\s+(\d+)(?:st|nd|rd|th)?\s*-\s*(\w+)\s*(\d+)(?:st|nd|rd|th)?',
+        # Dash format: "dec 1-dec 5"
+        r'(\w+)\s+(\d+)\s*-\s*(\w+)\s*(\d+)',
+        # Through format: "december 1 through december 5"
+        r'(\w+)\s+(\d+)\s+through\s+(\w+)\s+(\d+)',
+    ]
+    
+    match = None
+    for pattern in date_patterns:
+        match = re.search(pattern, message_lower)
+        if match:
+            logger.debug(f"Date pattern matched: {pattern} -> {match.groups()}")
+            break
     
     if match:
         month1, day1, month2, day2 = match.groups()
@@ -1100,13 +1121,17 @@ def extract_dates_from_message(message):
             'oct': 10, 'october': 10, 'nov': 11, 'november': 11, 'dec': 12, 'december': 12
         }
         
+        # Extract day numbers (remove ordinal suffixes if present)
+        day1 = int(re.sub(r'(st|nd|rd|th)$', '', day1))
+        day2 = int(re.sub(r'(st|nd|rd|th)$', '', day2))
+        
         month1_num = month_names.get(month1.lower(), 11)
         month2_num = month_names.get(month2.lower(), 11)
         
         # Use current year
         current_year = datetime.now().year
-        departure_date = datetime(current_year, month1_num, int(day1))
-        return_date = datetime(current_year, month2_num, int(day2))
+        departure_date = datetime(current_year, month1_num, day1)
+        return_date = datetime(current_year, month2_num, day2)
         
         departure_display = departure_date.strftime("%b %d, %Y")
         return_display = return_date.strftime("%b %d, %Y")
