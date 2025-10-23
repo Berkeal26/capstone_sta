@@ -1089,6 +1089,12 @@ def extract_dates_from_message(message):
     date_patterns = [
         # Dash format without second month: "dec 10-17" (assume same month) - MOST SPECIFIC FIRST
         r'(\w+)\s+(\d+)\s*-\s*(\d+)',
+        # Dash format with concatenated month+day: "dec 10-dec17" (same month)
+        r'(\w+)\s+(\d+)\s*-\s*(\w+)(\d+)',
+        # Dash format with spaces: "dec 10-dec 17" (same month)
+        r'(\w+)\s+(\d+)\s*-\s*(\w+)\s+(\d+)',
+        # Dash format with no spaces: "dec10-dec17" (same month) - specific month pattern
+        r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(\d+)\s*-\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(\d+)\b',
         # Full month names with ordinal numbers: "december 1st to december 5th"
         r'(\w+)\s+(\d+)(?:st|nd|rd|th)?\s+to\s+(\w+)\s+(\d+)(?:st|nd|rd|th)?',
         # Full month names: "december 1 to december 5"
@@ -1128,14 +1134,48 @@ def extract_dates_from_message(message):
         }
         
         if len(groups) == 4:
-            # Format: "dec 10-dec 17" or "december 1 to december 5"
+            # Format: "dec 10-dec 17" or "december 1 to december 5" or "dec 10-dec17"
             month1, day1, month2, day2 = groups
             # Extract day numbers (remove ordinal suffixes if present)
             day1 = int(re.sub(r'(st|nd|rd|th)$', '', day1))
             day2 = int(re.sub(r'(st|nd|rd|th)$', '', day2))
             
-            month1_num = month_names.get(month1.lower(), 11)
-            month2_num = month_names.get(month2.lower(), 11)
+            # Check if this is one of the special concatenated formats
+            if matched_pattern in [r'(\w+)\s+(\d+)\s*-\s*(\w+)(\d+)', r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(\d+)\s*-\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(\d+)\b']:
+                # For "dec 10-dec17" or "dec10-dec17", we need to handle concatenated month+day
+                logger.debug(f"Concatenated format detected: {month1} {day1}-{month2}{day2}")
+                
+                # Check if month2 starts with month1 (e.g., "dec1" starts with "dec")
+                if month2.lower().startswith(month1.lower()):
+                    # This is the concatenated format like "dec 10-dec17" -> "dec", "10", "dec1", "7"
+                    # We need to extract the correct day from the concatenated part
+                    remaining_part = month2[len(month1):]  # "1" from "dec1"
+                    actual_day2_str = remaining_part + str(day2)  # "1" + "7" = "17"
+                    logger.debug(f"Reconstructed: month1={month1}, day1={day1}, month2={month1}, day2={actual_day2_str}")
+                    
+                    month1_num = month_names.get(month1.lower(), 11)
+                    month2_num = month1_num  # Same month
+                    day2 = int(actual_day2_str)  # Update day2 with the correct value
+                else:
+                    # Regular case where months are different
+                    month1_num = month_names.get(month1.lower(), 11)
+                    month2_num = month_names.get(month2.lower(), 11)
+            elif matched_pattern == r'(\w+)\s+(\d+)\s*-\s*(\w+)\s+(\d+)':
+                # For "dec 10-dec 17" format (with spaces)
+                logger.debug(f"Spaced format detected: {month1} {day1}-{month2} {day2}")
+                
+                # Check if both months are the same
+                if month1.lower() == month2.lower():
+                    month1_num = month_names.get(month1.lower(), 11)
+                    month2_num = month1_num  # Same month
+                    logger.debug(f"Same month detected: {month1}")
+                else:
+                    month1_num = month_names.get(month1.lower(), 11)
+                    month2_num = month_names.get(month2.lower(), 11)
+            else:
+                # Regular 4-group format
+                month1_num = month_names.get(month1.lower(), 11)
+                month2_num = month_names.get(month2.lower(), 11)
         elif len(groups) == 3:
             # Format: "dec 10-17" (same month, different days)
             month1, day1, day2 = groups
