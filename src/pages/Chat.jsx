@@ -94,8 +94,8 @@ function cleanContext(context) {
 }
 
 async function sendToApi(messages, context, sessionId) {
-  // Force localhost for development
-  const base = 'http://localhost:8000';
+  // Use production Vercel backend or fallback to localhost for development
+  const base = process.env.REACT_APP_API_BASE;
   console.log('API Base URL:', base);
   console.log('Making request to:', `${base}/api/chat`);
   
