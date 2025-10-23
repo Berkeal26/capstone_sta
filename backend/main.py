@@ -478,12 +478,34 @@ Output:
         data_section += "YOU MUST USE THIS REAL-TIME DATA IN YOUR RESPONSE. DO NOT PROVIDE GENERIC ADVICE.\n"
         data_section += "PRIORITIZE THIS DATA OVER ANY GENERAL KNOWLEDGE.\n\n"
         
-        if 'flights' in amadeus_data:
-            data_section += f"FLIGHTS ({amadeus_data.get('count', 0)} found):\n"
-            for i, flight in enumerate(amadeus_data['flights'][:3], 1):
-                price = flight.get('price', 'N/A')
-                currency = flight.get('currency', 'USD')
-                data_section += f"{i}. Price: {price} {currency}\n"
+        if 'flights' in amadeus_data or 'outboundFlights' in amadeus_data:
+            # Handle round-trip flight data with best combination
+            if 'bestCombination' in amadeus_data:
+                best = amadeus_data['bestCombination']
+                data_section += f"🎯 BEST ROUND-TRIP DEAL (MUST BE HIGHLIGHTED IN YOUR RESPONSE):\n"
+                data_section += f"Outbound: {best['outbound']['airline']} {best['outbound']['flightNumber']} - ${best['outbound']['price']} ({best['outbound']['departure']} - {best['outbound']['arrival']})\n"
+                data_section += f"Return: {best['return']['airline']} {best['return']['flightNumber']} - ${best['return']['price']} ({best['return']['departure']} - {best['return']['arrival']})\n"
+                data_section += f"Total Price: ${best['totalPrice']} ({best['savings']})\n\n"
+                data_section += f"CRITICAL: You MUST use EXACTLY these flights in your response!\n"
+                data_section += f"MANDATORY FORMAT: Start with '# Best Round-Trip Deal\\n\\n**Outbound:** {best['outbound']['airline']} {best['outbound']['flightNumber']} - ${best['outbound']['price']} ({best['outbound']['departure']} - {best['outbound']['arrival']})\\n**Return:** {best['return']['airline']} {best['return']['flightNumber']} - ${best['return']['price']} ({best['return']['departure']} - {best['return']['arrival']})\\n**Total:** ${best['totalPrice']} ({best['savings']})\\n\\n## Other Options\\nThen show other flight options below.'\n"
+                data_section += f"DO NOT calculate your own totals - use the EXACT total of ${best['totalPrice']}!\n\n"
+            
+            # Show individual flight options
+            if 'outboundFlights' in amadeus_data:
+                data_section += f"OUTBOUND FLIGHTS ({len(amadeus_data['outboundFlights'])} options):\n"
+                for i, flight in enumerate(amadeus_data['outboundFlights'][:3], 1):
+                    data_section += f"{i}. {flight['airline']} {flight['flightNumber']} - ${flight['price']} ({flight['departure']} - {flight['arrival']})\n"
+                
+                data_section += f"\nRETURN FLIGHTS ({len(amadeus_data['returnFlights'])} options):\n"
+                for i, flight in enumerate(amadeus_data['returnFlights'][:3], 1):
+                    data_section += f"{i}. {flight['airline']} {flight['flightNumber']} - ${flight['price']} ({flight['departure']} - {flight['arrival']})\n"
+            else:
+                # Fallback for old format
+                data_section += f"FLIGHTS ({amadeus_data.get('count', 0)} found):\n"
+                for i, flight in enumerate(amadeus_data['flights'][:3], 1):
+                    price = flight.get('price', 'N/A')
+                    currency = flight.get('currency', 'USD')
+                    data_section += f"{i}. Price: {price} {currency}\n"
                 
         elif 'hotels' in amadeus_data:
             data_section += f"HOTELS ({amadeus_data.get('count', 0)} found):\n"
