@@ -913,6 +913,7 @@ def extract_route_from_message(message):
         'las vegas': 'LAS', 'las': 'LAS',
         'orlando': 'MCO', 'mco': 'MCO',
         'washington dc': 'DCA', 'washington': 'DCA', 'dc': 'DCA', 'dca': 'DCA',
+        'ohio': 'CMH', 'columbus': 'CMH', 'cleveland': 'CLE', 'cincinnati': 'CVG', 'cmh': 'CMH', 'cle': 'CLE', 'cvg': 'CVG',
         'houston': 'IAH', 'iah': 'IAH',
         'detroit': 'DTW', 'dtw': 'DTW',
         'minneapolis': 'MSP', 'msp': 'MSP',
@@ -943,6 +944,7 @@ def extract_route_from_message(message):
         'las vegas': 'Las Vegas', 'las': 'Las Vegas',
         'orlando': 'Orlando', 'mco': 'Orlando',
         'washington dc': 'Washington DC', 'washington': 'Washington DC', 'dc': 'Washington DC', 'dca': 'Washington DC',
+        'ohio': 'Ohio', 'columbus': 'Ohio', 'cleveland': 'Ohio', 'cincinnati': 'Ohio', 'cmh': 'Ohio', 'cle': 'Ohio', 'cvg': 'Ohio',
         'houston': 'Houston', 'iah': 'Houston',
         'detroit': 'Detroit', 'dtw': 'Detroit',
         'minneapolis': 'Minneapolis', 'msp': 'Minneapolis',
@@ -1013,7 +1015,7 @@ def extract_route_from_message(message):
     
     # Map cities to airport codes and proper names
     origin_code = airport_mappings.get(origin_city.lower(), 'JFK')
-    destination_code = airport_mappings.get(destination_city.lower(), 'LAX')
+    destination_code = airport_mappings.get(destination_city.lower(), 'CMH')
     origin_name = city_mappings.get(origin_city.lower(), ' '.join(word.capitalize() for word in origin_city.split()))
     destination_name = city_mappings.get(destination_city.lower(), ' '.join(word.capitalize() for word in destination_city.split()))
     
