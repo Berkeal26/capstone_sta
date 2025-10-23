@@ -1085,8 +1085,10 @@ def extract_dates_from_message(message):
     message_lower = message.lower()
     logger.debug(f"Extracting dates from: '{message_lower}'")
     
-    # Enhanced patterns for various date formats
+    # Enhanced patterns for various date formats (ordered by specificity)
     date_patterns = [
+        # Dash format without second month: "dec 10-17" (assume same month) - MOST SPECIFIC FIRST
+        r'(\w+)\s+(\d+)\s*-\s*(\d+)',
         # Full month names with ordinal numbers: "december 1st to december 5th"
         r'(\w+)\s+(\d+)(?:st|nd|rd|th)?\s+to\s+(\w+)\s+(\d+)(?:st|nd|rd|th)?',
         # Full month names: "december 1 to december 5"
@@ -1099,21 +1101,23 @@ def extract_dates_from_message(message):
         r'(\w+)\s+(\d+)(?:st|nd|rd|th)?\s*-\s*(\w+)\s*(\d+)(?:st|nd|rd|th)?',
         # Dash format: "dec 1-dec 5" (same month, different days)
         r'(\w+)\s+(\d+)\s*-\s*(\w+)\s*(\d+)',
-        # Dash format without second month: "dec 10-17" (assume same month)
-        r'(\w+)\s+(\d+)\s*-\s*(\d+)',
         # Through format: "december 1 through december 5"
         r'(\w+)\s+(\d+)\s+through\s+(\w+)\s+(\d+)',
     ]
     
     match = None
-    for pattern in date_patterns:
-        match = re.search(pattern, message_lower)
-        if match:
-            logger.debug(f"Date pattern matched: {pattern} -> {match.groups()}")
-            break
+    matched_pattern = None
+    for i, pattern in enumerate(date_patterns):
+        test_match = re.search(pattern, message_lower)
+        if test_match:
+            logger.debug(f"Pattern {i} matched: {pattern} -> {test_match.groups()}")
+            if not match:  # Use first match
+                match = test_match
+                matched_pattern = pattern
     
     if match:
         groups = match.groups()
+        logger.debug(f"Using pattern: {matched_pattern}")
         logger.debug(f"Date pattern matched: {groups}")
         
         month_names = {
