@@ -736,6 +736,9 @@ async def chat(req: ChatRequest):
         
         # Generate response using OpenAI
         try:
+            # Create system prompt with context and data
+            system_prompt = create_system_prompt(req.context, amadeus_data)
+            
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
