@@ -5,15 +5,17 @@ import { FlightsTable } from './FlightsTable';
 import { ScrollArea } from '../ui/scroll-area';
 
 // Mock data for demonstration - this will be replaced with real Amadeus API data
-const priceData = [
-  { date: 'Oct 20', price: 450, optimal: 380 },
-  { date: 'Oct 21', price: 420, optimal: 380 },
-  { date: 'Oct 22', price: 390, optimal: 380 },
-  { date: 'Oct 23', price: 380, optimal: 380 },
-  { date: 'Oct 24', price: 410, optimal: 380 },
-  { date: 'Oct 25', price: 480, optimal: 380 },
-  { date: 'Oct 26', price: 520, optimal: 380 },
-];
+const generateMockPriceData = (startDate = new Date()) => {
+  const basePrice = 380;
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
+    return {
+      date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      price: basePrice + Math.floor(Math.random() * 100) - 50,
+      optimal: basePrice
+    };
+  });
+};
 
 const flightsData = [
   {
@@ -93,14 +95,14 @@ export function FlightDashboard({ searchData = null }) {
   
   // Use real data if provided, otherwise use mock data
   const hasRealData = searchData?.hasRealData || false;
-  const displayPriceData = searchData?.priceData?.length > 0 ? searchData.priceData : priceData;
+  const displayPriceData = searchData?.priceData?.length > 0 ? searchData.priceData : generateMockPriceData();
   const displayFlightsData = searchData?.flights?.length > 0 ? searchData.flights : flightsData;
   const routeInfo = searchData?.route || {
     departure: 'New York',
-    destination: 'Los Angeles',
+    destination: 'Tokyo',
     departureCode: 'JFK',
-    destinationCode: 'LAX',
-    date: 'Oct 23, 2025'
+    destinationCode: 'NRT',
+    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   };
   
   console.log('FlightDashboard using data:', {
